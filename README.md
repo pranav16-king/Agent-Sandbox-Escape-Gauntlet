@@ -21,6 +21,7 @@ For full challenge requirements, evaluation metrics, and technical specification
 - **[Solution Design & Build Plan (`docs/solution.md`)](docs/solution.md)**
 - **[Why Existing Solutions Fail (`docs/why_existing_solutions_fail.md`)](docs/why_existing_solutions_fail.md)**
 - **[Competitor & Alternative Analysis (`docs/competitor.md`)](docs/competitor.md)**
+- **[Feasibility, Impact & Research References (`docs/feasibility_impact_research.md`)](docs/feasibility_impact_research.md)**
 
 ---
 
@@ -108,7 +109,8 @@ flowchart TD
 │   ├── architecture.md                # 8-zone system architecture, trust boundaries & deployment topology
 │   ├── solution.md                    # Solution design, USPs, trust boundaries & build plan
 │   ├── why_existing_solutions_fail.md # 15 failure modes of existing defenses & our countermeasures
-│   └── competitor.md                  # Landscape comparison & differentiator analysis
+│   ├── competitor.md                  # Landscape comparison & differentiator analysis
+│   └── feasibility_impact_research.md # Feasibility, viability, impact metrics & research references
 ├── agent/                             # Ollama loop, tool schemas
 ├── adapter/                           # HTTP + MCP adapter, auth
 ├── gateway/                           # FastAPI: normalize, manifest, dispatch
