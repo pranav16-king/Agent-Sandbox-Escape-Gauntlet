@@ -16,7 +16,10 @@ Because prompt-level defenses inside the model can be bypassed, the **Agent Sand
 
 For full challenge requirements, evaluation metrics, and technical specifications, see:
 - **[Problem Statement (`docs/problem_statement.md`)](docs/problem_statement.md)**
-- **[Deep-Dive Problem Analysis, Agent-Agnostic Gateway & Complete Workflow (`docs/problem_analysis.md`)](docs/problem_analysis.md)**
+- **[Deep-Dive Problem Analysis (`docs/problem_analysis.md`)](docs/problem_analysis.md)**
+- **[Solution Design & Architecture (`docs/solution.md`)](docs/solution.md)**
+- **[Why Existing Solutions Fail (`docs/why_existing_solutions_fail.md`)](docs/why_existing_solutions_fail.md)**
+- **[Competitor & Alternative Analysis (`docs/competitor.md`)](docs/competitor.md)**
 
 ---
 
@@ -99,17 +102,22 @@ flowchart TD
 
 ```text
 ├── docs/
-│   ├── problem_statement.md     # Official problem statement & technical guidelines
-│   └── problem_analysis.md      # Deep-dive analysis, agent-neutral gateway & runtime workflow
-├── sandbox/                     # Container isolation, seccomp profiles, and runtime scripts
-├── policy/                      # OPA Rego rules, safety policies, and policy engine
-├── network/                     # Squid and dnsmasq allowlist configurations
-├── agent/                       # Lightweight agent loop & Ollama model integrations
-├── audit/                       # Cryptographic hash-chained SQLite audit logger
-├── dashboard/                   # FastAPI backend & interactive frontend dashboard
-├── tests/
-│   ├── normal_tasks/            # Benign tasks to demonstrate utility
-│   └── attack_scenarios/        # Adversarial attack scripts to demonstrate containment
+│   ├── problem_statement.md           # Official problem statement & technical guidelines
+│   ├── problem_analysis.md            # Deep-dive analysis, agent-neutral gateway & runtime workflow
+│   ├── solution.md                    # Solution design, USPs, trust boundaries & build plan
+│   ├── why_existing_solutions_fail.md # 15 failure modes of existing defenses & our countermeasures
+│   └── competitor.md                  # Landscape comparison & differentiator analysis
+├── agent/                       # Ollama loop, tool schemas
+├── gateway/                     # FastAPI: auth, normalize, manifest, dispatch
+├── policy/                      # rules.rego or rules.py, manifests/, allowlists
+├── inspector/                   # Prompt Guard wrapper, secret redaction, taint
+├── runtime/                     # Dockerfile, seccomp.json, executor.py, watchdog.py
+├── egress/                      # squid.conf, dnsmasq.conf, iptables.sh
+├── audit/                       # chain.py, verify_chain.py
+├── dashboard/                   # FastAPI WS + React/Streamlit
+├── gauntlet/                    # normal tasks, attack scripts, fixtures, scoreboard
+├── docker-compose.yml
+├── solution.md                  # Complete solution design specification
 └── README.md
 ```
 
