@@ -14,7 +14,9 @@ Modern AI agents execute shell commands, interact with local filesystems, and is
 
 Because prompt-level defenses inside the model can be bypassed, the **Agent Sandbox Escape Gauntlet** enforces containment at the operating system, container, network, and policy layers.
 
-For full challenge requirements, evaluation metrics, and technical specifications, see **[docs/problem_statement.md](docs/problem_statement.md)**.
+For full challenge requirements, evaluation metrics, and technical specifications, see:
+- **[Problem Statement (`docs/problem_statement.md`)](docs/problem_statement.md)**
+- **[Deep-Dive Problem Analysis, Agent-Agnostic Gateway & Complete Workflow (`docs/problem_analysis.md`)](docs/problem_analysis.md)**
 
 ---
 
@@ -97,7 +99,8 @@ flowchart TD
 
 ```text
 ├── docs/
-│   └── problem_statement.md     # Official problem statement & technical guidelines
+│   ├── problem_statement.md     # Official problem statement & technical guidelines
+│   └── problem_analysis.md      # Deep-dive analysis, agent-neutral gateway & runtime workflow
 ├── sandbox/                     # Container isolation, seccomp profiles, and runtime scripts
 ├── policy/                      # OPA Rego rules, safety policies, and policy engine
 ├── network/                     # Squid and dnsmasq allowlist configurations
