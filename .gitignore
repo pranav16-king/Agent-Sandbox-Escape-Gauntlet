@@ -94,10 +94,10 @@ sandbox_runtime/
 # Logs & Process Dumps
 # ------------------------------------------------------------------------------
 *.log
-logs/
+/logs/
 *.pid
-tmp/
-temp/
+/tmp/
+/temp/
 
 # ------------------------------------------------------------------------------
 # Frontend Dashboard (Node, Vite, React, TypeScript)

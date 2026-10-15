@@ -160,4 +160,12 @@ class AuditLedger:
                 return AuditEntry(**dict(row))
             return None
 
+    def tamper_entry(self, entry_id: int, new_args: str = '{"tampered": true, "attack": "bypassed"}') -> bool:
+        with self._lock:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE audit SET args = ? WHERE id = ?", (new_args, entry_id))
+                conn.commit()
+                return cursor.rowcount > 0
+
 audit_ledger = AuditLedger()
