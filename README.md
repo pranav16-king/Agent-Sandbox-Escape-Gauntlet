@@ -111,6 +111,7 @@ flowchart TD
 │   ├── why_existing_solutions_fail.md # 15 failure modes of existing defenses & our countermeasures
 │   ├── competitor.md                  # Landscape comparison & differentiator analysis
 │   └── feasibility_impact_research.md # Feasibility, viability, impact metrics & research references
+├── backend/                           # FastAPI gateway, policy gate, audit ledger, runtime executor
 ├── agent/                             # Ollama loop, tool schemas
 ├── adapter/                           # HTTP + MCP adapter, auth
 ├── gateway/                           # FastAPI: normalize, manifest, dispatch
