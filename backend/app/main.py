@@ -360,9 +360,24 @@ async def websocket_dashboard(websocket: WebSocket):
     await websocket.accept()
     active_connections.append(websocket)
     try:
-        # Keep connection open and receive optional ping/pong
+        # Keep connection open, handle client ping/pong keepalive
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            if not data:
+                continue
+            try:
+                msg = json.loads(data)
+                if isinstance(msg, dict) and msg.get("type") == "ping":
+                    await websocket.send_text(json.dumps({
+                        "type": "pong",
+                        "ts": datetime.now(timezone.utc).isoformat()
+                    }))
+            except Exception:
+                if data.strip().lower() == "ping":
+                    await websocket.send_text(json.dumps({
+                        "type": "pong",
+                        "ts": datetime.now(timezone.utc).isoformat()
+                    }))
     except WebSocketDisconnect:
         if websocket in active_connections:
             active_connections.remove(websocket)
@@ -913,10 +928,40 @@ async def chat_with_agent(req: AgentChatRequest):
         broadcast_envelope("agent_message", {
             "id": f"err-{int(datetime.now().timestamp()*1000)}",
             "role": "agent",
+            "decision": "block",
+            "rule_id": "SYS-ERR",
+            "reason": error_msg,
             "text": f"⚠️ [{res.get('status', 'error').upper()}] {error_msg}",
             "ts": datetime.now(timezone.utc).isoformat()
         })
         return res
+
+    # Determine overall turn verdict
+    decisions = res.get("decisions", [])
+    overall_decision = "allow"
+    overall_rule_id = "POL-PASS"
+    overall_reason = "Operation approved under active workspace security policy"
+
+    if decisions:
+        if any(d.get("decision") == "block" for d in decisions):
+            b_dec = next(d for d in decisions if d.get("decision") == "block")
+            overall_decision = "block"
+            overall_rule_id = b_dec.get("rule_id", "POLICY")
+            overall_reason = b_dec.get("reason", "Tool execution blocked by security policy")
+        elif any(d.get("decision") == "ask" for d in decisions):
+            a_dec = next(d for d in decisions if d.get("decision") == "ask")
+            overall_decision = "ask"
+            overall_rule_id = a_dec.get("rule_id", "CMD-ASK")
+            overall_reason = a_dec.get("reason", "Tool execution escalated to HITL operator approval")
+        else:
+            first_d = decisions[0]
+            overall_decision = first_d.get("decision", "allow")
+            overall_rule_id = first_d.get("rule_id", "POL-PASS")
+            overall_reason = first_d.get("reason", "Operation approved under active workspace security policy")
+    elif ml_eval.decision == DecisionType.BLOCK:
+        overall_decision = "block"
+        overall_rule_id = "RES-003" if any(k in prompt_text for k in (":(){", ":|:&", "fork", "dd if=")) else "INJ-001"
+        overall_reason = f"Adversarial intent detected by Security ML Classifier (risk={ml_eval.risk_score:.2f})"
 
     # 3. Broadcast thought if available
     thought_text = (res.get("thought") or "").strip()
@@ -924,12 +969,14 @@ async def chat_with_agent(req: AgentChatRequest):
         broadcast_envelope("agent_message", {
             "id": f"thought-{int(datetime.now().timestamp()*1000)}",
             "role": "agent",
+            "decision": overall_decision,
+            "rule_id": overall_rule_id,
+            "reason": overall_reason,
             "text": f"🧠 Reasoning:\n{thought_text}",
             "ts": datetime.now(timezone.utc).isoformat()
         })
 
     # 4. Broadcast tool call decisions and outcomes
-    decisions = res.get("decisions", [])
     for dec in decisions:
         decision_val = dec.get("decision")
         symbol = "✓ ALLOW" if decision_val == "allow" else ("✕ BLOCK" if decision_val == "block" else "? ASK")
@@ -948,6 +995,9 @@ async def chat_with_agent(req: AgentChatRequest):
         broadcast_envelope("agent_message", {
             "id": f"dec-{dec.get('audit_id') or int(datetime.now().timestamp()*1000)}",
             "role": "agent",
+            "decision": decision_val,
+            "rule_id": rule_id,
+            "reason": reason,
             "text": msg_body,
             "ts": datetime.now(timezone.utc).isoformat()
         })
@@ -958,6 +1008,9 @@ async def chat_with_agent(req: AgentChatRequest):
         broadcast_envelope("agent_message", {
             "id": f"content-{int(datetime.now().timestamp()*1000)}",
             "role": "agent",
+            "decision": overall_decision,
+            "rule_id": overall_rule_id,
+            "reason": overall_reason,
             "text": content_text,
             "ts": datetime.now(timezone.utc).isoformat()
         })

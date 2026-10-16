@@ -1,6 +1,88 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, User, ArrowDown } from 'lucide-react';
+import { Bot, User, ArrowDown, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
+import { AgentMessage } from '@/api/types';
+
+interface MessageVerdict {
+  decision: 'allow' | 'block' | 'ask' | null;
+  ruleId?: string;
+  reason?: string;
+}
+
+const getMessageVerdict = (msg: AgentMessage, isLastAgentMsg: boolean, latestLog: any): MessageVerdict => {
+  // 1. Explicit decision on the message object
+  if (msg.decision) {
+    return {
+      decision: msg.decision,
+      ruleId: msg.rule_id,
+      reason: msg.reason,
+    };
+  }
+
+  const text = msg.text || '';
+
+  // 2. Pattern matching in message text
+  if (
+    text.includes('[✕ BLOCK') ||
+    text.includes('[BLOCK') ||
+    text.includes('🛑') ||
+    text.includes('Action blocked:') ||
+    text.includes('Action Blocked') ||
+    text.includes('blocked by policy') ||
+    text.includes('Blocked by') ||
+    text.includes('Gateway Reason: Command matched forbidden') ||
+    text.includes('Gateway Reason: Path traversal')
+  ) {
+    const ruleMatch = text.match(/\[(?:✕\s*)?BLOCK\s*\|\s*([A-Z0-9_-]+)\]/) || text.match(/\(([A-Z0-9_-]+)\)/);
+    return {
+      decision: 'block',
+      ruleId: ruleMatch ? ruleMatch[1] : (latestLog?.decision === 'block' ? latestLog.rule_id : 'POLICY-BLOCK'),
+      reason: latestLog?.decision === 'block' ? latestLog.reason : 'Execution denied by Host Security Gateway',
+    };
+  }
+
+  if (
+    text.includes('[? ASK') ||
+    text.includes('[ASK') ||
+    text.includes('Pending Approval') ||
+    text.includes('ACTION REQUIRED') ||
+    text.includes('requires approval') ||
+    text.includes('escalating to HITL')
+  ) {
+    const ruleMatch = text.match(/\[(?:\?\s*)?ASK\s*\|\s*([A-Z0-9_-]+)\]/) || text.match(/\(([A-Z0-9_-]+)\)/);
+    return {
+      decision: 'ask',
+      ruleId: ruleMatch ? ruleMatch[1] : (latestLog?.decision === 'ask' ? latestLog.rule_id : 'CMD-ASK'),
+      reason: latestLog?.decision === 'ask' ? latestLog.reason : 'Escalated to Human-in-the-Loop operator approval',
+    };
+  }
+
+  if (
+    text.includes('[✓ ALLOW') ||
+    text.includes('[ALLOW') ||
+    (text.includes('Tool Call:') && text.includes('Result:')) ||
+    text.includes('Successfully wrote') ||
+    text.includes('Action permitted')
+  ) {
+    const ruleMatch = text.match(/\[(?:✓\s*)?ALLOW\s*\|\s*([A-Z0-9_-]+)\]/) || text.match(/\(([A-Z0-9_-]+)\)/);
+    return {
+      decision: 'allow',
+      ruleId: ruleMatch ? ruleMatch[1] : (latestLog?.decision === 'allow' ? latestLog.rule_id : 'POL-PASS'),
+      reason: latestLog?.decision === 'allow' ? latestLog.reason : 'Action approved under active workspace security policy',
+    };
+  }
+
+  // 3. If this is the most recent agent answer in the stream, link with latest gateway audit log
+  if (isLastAgentMsg && latestLog) {
+    return {
+      decision: latestLog.decision,
+      ruleId: latestLog.rule_id,
+      reason: latestLog.reason,
+    };
+  }
+
+  return { decision: null };
+};
 
 export interface AgentFeedProps {
   maxHeight?: string;
@@ -14,6 +96,8 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
   defaultHeight = 'medium',
 }) => {
   const agentMessages = useLiveStore((s) => s.agentMessages);
+  const auditLogs = useLiveStore((s) => s.auditLogs);
+  const latestLog = auditLogs[0];
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [heightMode, setHeightMode] = useState<'normal' | 'medium' | 'tall'>(() => {
@@ -84,6 +168,21 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
             {agentMessages.length} events logged
           </span>
 
+          {latestLog && (
+            <span
+              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border uppercase flex items-center gap-1 shadow-xs ${
+                latestLog.decision === 'block'
+                  ? 'bg-block text-white border-block'
+                  : latestLog.decision === 'ask'
+                  ? 'bg-ask text-white border-ask'
+                  : 'bg-allow text-white border-allow'
+              }`}
+              title={`Last Policy Gate Decision: ${latestLog.decision.toUpperCase()} (${latestLog.rule_id})`}
+            >
+              {latestLog.decision === 'block' ? '✕ BLOCK' : latestLog.decision === 'ask' ? '? ASK' : '✓ ALLOWED'}
+            </span>
+          )}
+
           {allowExpand && (
             <div className="flex items-center gap-1 bg-raised/70 p-0.5 rounded-lg border border-line/60">
               {(['normal', 'medium', 'tall'] as const).map((m) => (
@@ -124,6 +223,9 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
         ) : (
           agentMessages.map((msg, idx) => {
             const isAgent = msg.role === 'agent';
+            const lastAgentIdx = agentMessages.map((m) => m.role).lastIndexOf('agent');
+            const isLastAgentMsg = idx === lastAgentIdx;
+            const verdict = isAgent ? getMessageVerdict(msg, isLastAgentMsg, latestLog) : { decision: null };
             return (
               <div
                 key={msg.id || idx}
@@ -157,6 +259,62 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
                   <div className="whitespace-pre-wrap font-mono text-xs text-ink break-words">
                     {msg.text}
                   </div>
+
+                  {/* Policy Decision Verdict Banner directly after answer */}
+                  {isAgent && verdict.decision && (
+                    <div
+                      className={`mt-2.5 pt-2 border-t flex flex-col gap-1.5 transition-all rounded-lg p-2.5 ${
+                        verdict.decision === 'block'
+                          ? 'bg-block/10 border-block/40 text-block'
+                          : verdict.decision === 'ask'
+                          ? 'bg-ask/10 border-ask/40 text-ask'
+                          : 'bg-allow/10 border-allow/40 text-allow'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wide">
+                          {verdict.decision === 'block' && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-block text-white font-extrabold shadow-xs text-[10px] tracking-wider">
+                              <XCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>BLOCK</span>
+                            </span>
+                          )}
+                          {verdict.decision === 'ask' && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-ask text-white font-extrabold shadow-xs animate-pulse text-[10px] tracking-wider">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                              <span>ASK</span>
+                            </span>
+                          )}
+                          {verdict.decision === 'allow' && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-allow text-white font-extrabold shadow-xs text-[10px] tracking-wider">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>ALLOWED</span>
+                            </span>
+                          )}
+                          <span className="text-[11px] font-semibold text-ink">
+                            {verdict.decision === 'block'
+                              ? 'Execution Denied by Policy'
+                              : verdict.decision === 'ask'
+                              ? 'Operator Approval Required'
+                              : 'Execution Permitted'}
+                          </span>
+                        </div>
+
+                        {verdict.ruleId && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded font-semibold bg-surface border border-line text-muted">
+                            Rule: <strong className="text-ink">{verdict.ruleId}</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      {verdict.reason && (
+                        <div className="text-[11px] leading-snug font-sans text-ink/80 bg-surface/80 p-2 rounded border border-line/50 mt-0.5">
+                          <span className="font-semibold text-muted">Gateway Verdict: </span>
+                          <span>{verdict.reason}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

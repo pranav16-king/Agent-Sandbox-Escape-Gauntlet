@@ -5,6 +5,7 @@ import { useUiStore } from '@/store/uiStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { ConnectionDot } from './ConnectionDot';
+import { reconnectWebSocket } from '@/api/ws';
 
 export const TopBar: React.FC = () => {
   const sandbox = useLiveStore((s) => s.system.sandbox);
@@ -50,7 +51,11 @@ export const TopBar: React.FC = () => {
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Connection status */}
-        <ConnectionDot status={connectionStatus} retryCount={retryCount} />
+        <ConnectionDot
+          status={connectionStatus}
+          retryCount={retryCount}
+          onReconnect={() => reconnectWebSocket()}
+        />
 
         {/* Large mode toggle for projectors / demo screens */}
         <button

@@ -36,6 +36,10 @@ export interface AgentMessage {
   role: 'user' | 'agent';
   text: string;
   tool_call_id?: string;
+  decision?: Decision;
+  rule_id?: string;
+  reason?: string;
+  risk_score?: number;
 }
 
 export interface ToolResult {

@@ -6,7 +6,6 @@ import { api } from '@/api/rest';
 import { KpiStrip } from '@/features/kpi/KpiStrip';
 import { AgentFeed } from '@/features/agent/AgentFeed';
 import { PipelineFlow } from '@/features/pipeline/PipelineFlow';
-import { SystemStatus } from '@/features/runtime/SystemStatus';
 import { ChainCard } from '@/features/chain/ChainCard';
 import { TimelineChart } from '@/features/charts/TimelineChart';
 import { AttackDonut } from '@/features/charts/AttackDonut';
@@ -120,7 +119,7 @@ export const Dashboard: React.FC = () => {
         <KpiStrip />
       </section>
 
-      {/* Row 2: Live Agent Activity (col 5) | Pipeline Flow (col 4) | System Status + Chain Card (col 3) */}
+      {/* Row 2: Live Agent Activity (col 5) | Pipeline Flow (col 4) | Pending Approvals + Chain Card (col 3) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         <div className="lg:col-span-5 min-h-[480px] flex flex-col">
           <AgentFeed />
@@ -130,7 +129,7 @@ export const Dashboard: React.FC = () => {
         </div>
         <div className="lg:col-span-3 flex flex-col gap-3 min-h-[480px]">
           <div className="flex-1 min-h-0">
-            <SystemStatus />
+            <AskQueue />
           </div>
           <div className="flex-1 min-h-0">
             <ChainCard />
@@ -148,18 +147,13 @@ export const Dashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* Row 4: Live Logs Table (col 8) | Ask Queue + Network Activity (col 4) */}
+      {/* Row 4: Live Logs Table (col 8) | Controlled Egress Network Activity (col 4) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         <div className="lg:col-span-8 min-h-[380px] flex flex-col">
           <LogTable maxHeight="h-[290px]" />
         </div>
-        <div className="lg:col-span-4 flex flex-col gap-4 min-h-[380px]">
-          <div className="flex-1 min-h-0">
-            <AskQueue />
-          </div>
-          <div className="flex-1 min-h-0">
-            <NetworkTable maxHeight="max-h-[120px]" />
-          </div>
+        <div className="lg:col-span-4 min-h-[380px] flex flex-col">
+          <NetworkTable maxHeight="max-h-[300px]" />
         </div>
       </section>
 

@@ -26,6 +26,7 @@ const AppContent: React.FC = () => {
   useLiveConnection();
 
   const setSnapshot = useLiveStore((s) => s.setSnapshot);
+  const connectionStatus = useLiveStore((s) => s.connectionStatus);
 
   // Load initial snapshot from server
   useEffect(() => {
@@ -48,6 +49,22 @@ const AppContent: React.FC = () => {
       isMounted = false;
     };
   }, [setSnapshot]);
+
+  // Fallback polling: if WebSocket is offline, keep dashboard telemetry live every 4s
+  useEffect(() => {
+    if (connectionStatus !== 'offline') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const snapshot = await api.getSnapshot();
+        if (snapshot && snapshot.counts) {
+          setSnapshot(snapshot);
+        }
+      } catch {}
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [connectionStatus, setSnapshot]);
 
   return (
     <div className="h-screen max-h-screen overflow-hidden bg-bg text-ink flex flex-col antialiased selection:bg-accent selection:text-on-accent">
