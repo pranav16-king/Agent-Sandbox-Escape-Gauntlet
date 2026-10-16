@@ -50,19 +50,19 @@ const AppContent: React.FC = () => {
   }, [setSnapshot]);
 
   return (
-    <div className="min-h-screen bg-bg text-ink flex flex-col antialiased selection:bg-accent selection:text-on-accent">
+    <div className="h-screen max-h-screen overflow-hidden bg-bg text-ink flex flex-col antialiased selection:bg-accent selection:text-on-accent">
       {/* Persistent banner shown on every page when sandbox is OFF */}
       <SandboxBanner />
 
       {/* Sticky top navigation bar */}
       <TopBar />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* Responsive left sidebar */}
         <Sidebar />
 
         {/* Main scrollable view */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-bg transition-colors">
+        <main className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-6 bg-bg transition-colors">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/agent" element={<LiveAgent />} />

@@ -1,0 +1,85 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Zone 4: Hardened Isolated Container Runtime
+  # ----------------------------------------------------------------------------
+  sandbox:
+    container_name: ps01-sandbox
+    build:
+      context: .
+      dockerfile: runtime/Dockerfile
+    image: ps01-sandbox:latest
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /home/sandbox:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:runtime/seccomp.json
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 0.5
+    networks:
+      sandbox_net:
+        ipv4_address: 172.30.0.10
+    dns:
+      - 172.30.0.3
+    environment:
+      - HTTP_PROXY=http://172.30.0.2:3128
+      - HTTPS_PROXY=http://172.30.0.2:3128
+      - http_proxy=http://172.30.0.2:3128
+      - https_proxy=http://172.30.0.2:3128
+      - NO_PROXY=localhost,127.0.0.1
+    volumes:
+      - ./data/workspace:/workspace:rw
+    command: ["tail", "-f", "/dev/null"]
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # Zone 6: Egress Proxy Layer - Squid HTTP/HTTPS Forwarder
+  # ----------------------------------------------------------------------------
+  squid:
+    container_name: ps01-squid
+    image: ubuntu/squid:latest
+    restart: unless-stopped
+    volumes:
+      - ./egress/squid.conf:/etc/squid/squid.conf:ro
+      - ./egress/allowlist.txt:/etc/squid/allowlist.txt:ro
+    networks:
+      sandbox_net:
+        ipv4_address: 172.30.0.2
+      egress_net:
+
+  # ----------------------------------------------------------------------------
+  # Zone 6: Egress Proxy Layer - dnsmasq Secure DNS Forwarder
+  # ----------------------------------------------------------------------------
+  dnsmasq:
+    container_name: ps01-dnsmasq
+    image: 4km3/dnsmasq:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./egress/dnsmasq.conf:/etc/dnsmasq.conf:ro
+    networks:
+      sandbox_net:
+        ipv4_address: 172.30.0.3
+      egress_net:
+
+# ------------------------------------------------------------------------------
+# Network Topology
+# ------------------------------------------------------------------------------
+networks:
+  # Internal network with NO default external gateway for sandbox isolation
+  sandbox_net:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+  # Bridged egress network connecting proxies to public Internet
+  egress_net:
+    driver: bridge

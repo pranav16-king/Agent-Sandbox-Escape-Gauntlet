@@ -76,6 +76,9 @@ export const api = {
   resolveAsk: async (auditId: number, outcome: 'approve' | 'deny'): Promise<{ ok: boolean }> => {
     return fetchJson(`/api/ask/${auditId}`, {
       method: 'POST',
+      headers: {
+        Authorization: 'Bearer sbx-approver-secret-token-2026',
+      },
       body: JSON.stringify({ outcome }),
     });
   },

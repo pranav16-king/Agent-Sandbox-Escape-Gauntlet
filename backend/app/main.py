@@ -9,14 +9,19 @@ from pydantic import BaseModel
 from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import settings
-from .models import ToolCall, GatewayResponse, AskResolution
-from .gateway import sandbox_gateway
+import os
+from .config import settings, APPROVER_TOKEN
+from .models import ToolCall, GatewayResponse, AskResolution, DecisionType
+from .pipeline import sandbox_gateway
 from .audit.ledger import audit_ledger
 from .audit.verifier import verify_chain
+from .audit.chain import verify_audit_chain
 from .policy.manifests import TASK_MANIFESTS
 from .agent.ollama_agent import ollama_agent
 from .workspace import workspace_manager
+from .probes import get_all_controls_status
+from .inspector.taint import taint_tracker
+from .ml import security_classifier, predict_security_intent
 
 from contextlib import asynccontextmanager
 
@@ -41,6 +46,21 @@ def get_real_system_resources() -> dict[str, Any]:
         "pids_limit": 2048,
     }
 
+def get_truthful_component_statuses() -> dict[str, str]:
+    """
+    Probes subsystems truthfully. Never returns fake green if services are unreachable or unverified.
+    """
+    probe_summary = get_all_controls_status()
+    ctrl_map = {c["name"]: c["state"] for c in probe_summary["controls"]}
+    return {
+        "Host Gateway": "running",
+        "Policy Engine": "active" if ctrl_map.get("Policy Engine Active") == "verified" else "degraded",
+        "Squid Proxy": "logging" if ctrl_map.get("Egress Allowlist Live") == "verified" else "offline",
+        "dnsmasq DNS": "active" if ctrl_map.get("DNS Allowlist Live") == "verified" else "offline",
+        "Audit Ledger": "connected" if ctrl_map.get("Audit Chain Intact") == "verified" else "compromised",
+        "Docker Sandbox": "running" if ctrl_map.get("Container Running") == "verified" else "offline"
+    }
+
 async def _telemetry_loop():
     while True:
         try:
@@ -49,14 +69,7 @@ async def _telemetry_loop():
                 broadcast_envelope("resources", get_real_system_resources())
                 broadcast_envelope("system", {
                     "sandbox": sandbox_state["mode"],
-                    "components": {
-                        "Host Gateway": "running",
-                        "Policy Engine": "active",
-                        "Squid Proxy": "logging",
-                        "dnsmasq DNS": "active",
-                        "Audit Ledger": "connected",
-                        "Docker Sandbox": "running"
-                    },
+                    "components": get_truthful_component_statuses(),
                     "uptime_s": int(time.time() - SERVER_START_TIME)
                 })
         except asyncio.CancelledError:
@@ -212,14 +225,50 @@ def list_audit_logs(
         "entries": [e.model_dump() for e in entries]
     }
 
+def require_approver_token(authorization: Optional[str] = Header(None)) -> str:
+    """
+    Validates APPROVER_TOKEN passed as 'Authorization: Bearer <token>'
+    """
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Authorization header: APPROVER_TOKEN required via 'Authorization: Bearer <token>'"
+        )
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header format. Expected 'Bearer <token>'"
+        )
+    token = parts[1]
+    if token != APPROVER_TOKEN:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized approver: Invalid APPROVER_TOKEN"
+        )
+    return token
+
+class PolicyApprovalRequest(BaseModel):
+    approval_id: Optional[str] = None
+    audit_id: Optional[int] = None
+    call_id: Optional[str] = None
+    args_sha256: Optional[str] = None
+    decision: Optional[str] = "allow"
+    outcome: Optional[str] = None
+    approver: Optional[str] = "security-admin"
+    reason: Optional[str] = "HITL operator approved"
+
 @app.get("/v1/audit/verify")
-def verify_audit_chain():
+def verify_audit_chain_v1():
     """
     Cryptographically verifies the SHA-256 hash chain from root to head.
     Detects any database tampering or retroactive modification.
     """
-    is_valid, broken_id, message = verify_chain()
+    is_valid, checked, broken_id, message = verify_audit_chain()
     return {
+        "ok": is_valid,
+        "checked": checked,
+        "first_bad_seq": broken_id,
         "chain_valid": is_valid,
         "broken_entry_id": broken_id,
         "message": message
@@ -234,18 +283,72 @@ def list_tasks():
         "tasks": {k: v.model_dump() for k, v in TASK_MANIFESTS.items()}
     }
 
+@app.post("/api/policy/approve")
+@app.post("/api/ask/approve")
+@app.post("/v1/ask/approve")
+def handle_hitl_approval(
+    req: PolicyApprovalRequest,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Cryptographically secure HITL approval endpoint.
+    Protected via APPROVER_TOKEN via 'Authorization: Bearer <token>'.
+    Enforces exact tool call hash binding (args_sha256), one-time use,
+    60s expiration with default deny, and logs approver in the immutable audit ledger.
+    """
+    require_approver_token(authorization)
+    dec_val = req.decision or "allow"
+    if req.outcome:
+        dec_val = "allow" if req.outcome.lower() in ("allow", "approve", "approved") else "block"
+    dec_enum = DecisionType.ALLOW if dec_val.lower() in ("allow", "approve", "approved") else DecisionType.BLOCK
+
+    success, message, record = sandbox_gateway.resolve_approval(
+        approval_id=req.approval_id,
+        audit_id=req.audit_id,
+        decision=dec_enum,
+        reason=req.reason or f"Approved via secure HITL endpoint by {req.approver or 'security-admin'}",
+        approver=req.approver or "security-admin",
+        expected_args_sha256=req.args_sha256
+    )
+
+    if not success:
+        if "expired" in message.lower():
+            raise HTTPException(status_code=410, detail=message)
+        elif "mismatch" in message.lower():
+            raise HTTPException(status_code=400, detail=message)
+        elif "already" in message.lower():
+            raise HTTPException(status_code=409, detail=message)
+        else:
+            raise HTTPException(status_code=404, detail=message)
+
+    return {
+        "ok": True,
+        "status": record.status,
+        "approval_id": record.approval_id,
+        "call_id": record.call_id,
+        "args_sha256": record.args_sha256,
+        "approved_by": record.approved_by,
+        "message": message
+    }
+
 @app.post("/v1/ask/{audit_id}")
-def resolve_operator_ask(audit_id: int, resolution: AskResolution):
+def resolve_operator_ask(
+    audit_id: int,
+    resolution: AskResolution,
+    authorization: Optional[str] = Header(None)
+):
     """
     Resolves a pending Human-in-the-Loop (HITL) ASK request.
+    Validates APPROVER_TOKEN when Authorization header is supplied.
     """
+    require_approver_token(authorization)
     success = sandbox_gateway.resolve_ask(audit_id, resolution.decision, resolution.reason)
     if not success:
         raise HTTPException(
             status_code=404,
             detail=f"Pending ask for audit_id {audit_id} not found or already timed out"
         )
-    return {"status": "resolved", "audit_id": audit_id, "decision": resolution.decision}
+    return {"status": "resolved", "audit_id": audit_id, "decision": resolution.decision.value}
 
 @app.websocket("/ws")
 async def websocket_dashboard(websocket: WebSocket):
@@ -385,16 +488,10 @@ def get_dashboard_snapshot(since: Optional[int] = None):
         },
         "system": {
             "sandbox": sandbox_state["mode"],
-            "components": {
-                "Host Gateway": "running",
-                "Policy Engine": "active",
-                "Squid Proxy": "logging",
-                "dnsmasq DNS": "active",
-                "Audit Ledger": "connected",
-                "Docker Sandbox": "running"
-            },
+            "components": get_truthful_component_statuses(),
             "uptime_s": int(time.time() - SERVER_START_TIME)
         },
+        "controls": get_all_controls_status(),
         "scenarios": [
             {
                 "id": s["id"],
@@ -469,14 +566,19 @@ def api_create_audit_entry(req: dict[str, Any] = None):
     return {"ok": True, "entry": entry.model_dump()}
 
 @app.post("/api/audit/verify")
+@app.get("/api/audit/verify")
 def api_verify_chain():
-    is_valid, broken_id, message = verify_chain()
+    is_valid, checked, broken_id, message = verify_audit_chain()
     return {
         "ok": is_valid,
-        "entries": len(audit_ledger.get_entries(limit=1000)),
+        "checked": checked,
+        "first_bad_seq": broken_id,
+        "entries": checked,
         "head_hash": audit_ledger.get_latest_hash(),
         "last_verified": datetime.now(timezone.utc).isoformat(),
-        "first_broken_id": broken_id
+        "first_broken_id": broken_id,
+        "chain_valid": is_valid,
+        "message": message
     }
 
 @app.post("/api/audit/tamper")
@@ -500,6 +602,7 @@ def api_clear_audit_logs():
     """
     global real_agent_messages
     audit_ledger.clear_ledger()
+    taint_tracker.clear_all()
     real_agent_messages.clear()
     now_iso = datetime.now(timezone.utc).isoformat()
     broadcast_envelope("chain", {
@@ -573,10 +676,31 @@ def api_set_sandbox_mode(req: SandboxModeRequest):
     return {"ok": True, "mode": req.mode}
 
 @app.post("/api/ask/{audit_id}")
-def api_resolve_ask(audit_id: int, req: AskResolutionBody):
-    dec = "allow" if req.outcome in ("approve", "approved") else "block"
-    sandbox_gateway.resolve_ask(audit_id, dec, f"Resolved via dashboard: {req.outcome}")
-    return {"ok": True, "audit_id": audit_id, "outcome": req.outcome}
+def api_resolve_ask(
+    audit_id: int,
+    req: AskResolutionBody,
+    authorization: Optional[str] = Header(None)
+):
+    approver = "dashboard-operator"
+    if authorization:
+        require_approver_token(authorization)
+        approver = "authorized-approver"
+    dec = DecisionType.ALLOW if req.outcome in ("approve", "approved", "allow") else DecisionType.BLOCK
+    success, message, record = sandbox_gateway.resolve_approval(
+        audit_id=audit_id,
+        decision=dec,
+        reason=f"Resolved via dashboard: {req.outcome}",
+        approver=approver
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {
+        "ok": True,
+        "audit_id": audit_id,
+        "outcome": req.outcome,
+        "approval_id": record.approval_id if record else None,
+        "status": record.status if record else "resolved"
+    }
 
 @app.get("/api/policy")
 def api_get_policy():
@@ -594,6 +718,35 @@ def api_get_policy():
         ],
         "allowed_tools": ["shell", "file", "http"]
     }
+
+@app.get("/api/controls/status")
+def get_controls_status():
+    """
+    Truthful probe-backed verification endpoint for all defense-in-depth controls.
+    Every control is checked actively. Failure or timeout returns 'unverified' or 'failed', never fake green.
+    """
+    return get_all_controls_status()
+
+class MLPredictRequest(BaseModel):
+    text: str
+
+@app.get("/api/ml/status")
+def api_ml_status():
+    """
+    Returns status, performance metrics, and configuration of the ML Security Classifier.
+    """
+    return security_classifier.get_status()
+
+@app.post("/api/ml/predict")
+def api_ml_predict(req: MLPredictRequest):
+    """
+    Evaluates input text through the real-time Security ML Classifier.
+    Returns verdict (ALLOW, ASK, BLOCK), risk_score (0.0 - 1.0), class probabilities, and security signals.
+    """
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Input text cannot be empty")
+    return security_classifier.predict(text)
 
 @app.get("/api/workspace")
 def api_get_workspace():
@@ -664,6 +817,7 @@ def api_browse_workspace(dir_path: Optional[str] = None):
 class AgentChatRequest(BaseModel):
     prompt: str
     task_id: Optional[str] = "live-demo"
+    replay_mode: Optional[bool] = False
 
 @app.post("/api/agent/chat")
 async def chat_with_agent(req: AgentChatRequest):
@@ -687,11 +841,57 @@ async def chat_with_agent(req: AgentChatRequest):
         "ts": now_iso
     })
 
-    # 2. Execute agent turn using Ollama Qwen3:4b
-    res = await ollama_agent.execute_prompt(prompt_text, task_id=req.task_id)
+    # 1.5 Real-time Security ML Intent Evaluation
+    ml_eval = predict_security_intent(prompt_text)
+    if not req.replay_mode and ml_eval.decision == DecisionType.BLOCK and ml_eval.risk_score >= 0.88:
+        audit_entry = audit_ledger.append(
+            session=req.task_id or "live-demo",
+            task=req.task_id or "live-demo",
+            source="prompt_guard_ml",
+            tool="agent_prompt",
+            args={"prompt_preview": prompt_text[:120], "risk_score": ml_eval.risk_score},
+            decision="block",
+            reason=f"ML Security Classifier blocked adversarial prompt (risk={ml_eval.risk_score:.2f})",
+            rule_id="INJ-001",
+            score=ml_eval.risk_score,
+            user_input=prompt_text
+        )
+        taint_tracker.taint_session(req.task_id or "live-demo", "ml_prompt_injection", audit_entry.id)
+        
+        broadcast_envelope("agent_message", {
+            "id": f"block-{int(datetime.now().timestamp()*1000)}",
+            "role": "agent",
+            "text": f"🛑 [✕ BLOCK | INJ-001] Adversarial Prompt Blocked (Risk: {ml_eval.risk_score:.2f})\nDetected prompt injection / evasion attack vector.\nSession tainted to restrict downstream operations.",
+            "ts": datetime.now(timezone.utc).isoformat()
+        })
+        return {
+            "ok": False,
+            "status": "blocked",
+            "error": "Adversarial prompt injection detected and blocked by Security ML Classifier",
+            "ml_evaluation": ml_eval.model_dump(),
+            "audit_id": audit_entry.id
+        }
+
+    # 2. Execute agent turn using Ollama Qwen3:4b (with bounded loop and replay support)
+    res = await ollama_agent.execute_prompt(
+        prompt_text,
+        task_id=req.task_id,
+        replay_mode=bool(req.replay_mode)
+    )
+
+    # If Ollama service is unreachable, broadcast explicit model offline alert
+    if not res.get("ok"):
+        error_msg = res.get("error", "Agent model execution failed")
+        broadcast_envelope("agent_message", {
+            "id": f"err-{int(datetime.now().timestamp()*1000)}",
+            "role": "agent",
+            "text": f"⚠️ [{res.get('status', 'error').upper()}] {error_msg}",
+            "ts": datetime.now(timezone.utc).isoformat()
+        })
+        return res
 
     # 3. Broadcast thought if available
-    thought_text = res.get("thought", "").strip()
+    thought_text = (res.get("thought") or "").strip()
     if thought_text:
         broadcast_envelope("agent_message", {
             "id": f"thought-{int(datetime.now().timestamp()*1000)}",
@@ -725,7 +925,7 @@ async def chat_with_agent(req: AgentChatRequest):
         })
 
     # 5. If model generated direct conversational content (and no tool calls or in addition to them)
-    content_text = res.get("content", "").strip()
+    content_text = (res.get("content") or "").strip()
     if content_text:
         broadcast_envelope("agent_message", {
             "id": f"content-{int(datetime.now().timestamp()*1000)}",

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, RefreshCw, AlertTriangle, Link } from 'lucide-react';
+import { Link, ShieldCheck, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
 import { HashChip } from '@/components/HashChip';
 import { api } from '@/api/rest';
@@ -14,15 +14,17 @@ export const ChainCard: React.FC = () => {
     setVerifying(true);
     try {
       const res = await api.verifyChain();
-      updateChainStatus(res);
-    } catch {
-      // Local fallback calculation if offline
       updateChainStatus({
-        ...chain,
-        last_verified: new Date().toISOString(),
+        ok: res.ok,
+        entries: res.entries,
+        head_hash: res.head_hash,
+        last_verified: res.last_verified,
+        first_broken_id: res.first_broken_id,
       });
+    } catch (e) {
+      console.error('Failed to verify chain:', e);
     } finally {
-      setTimeout(() => setVerifying(false), 400);
+      setVerifying(false);
     }
   };
 
@@ -32,55 +34,63 @@ export const ChainCard: React.FC = () => {
       await api.tamperTest();
       // After tampering, re-verify to demonstrate red failure state
       const res = await api.verifyChain();
-      updateChainStatus(res);
-    } catch {
-      // Offline simulation: simulate broken chain at entry #3
       updateChainStatus({
-        ok: false,
-        entries: chain.entries,
-        head_hash: chain.head_hash,
-        last_verified: new Date().toISOString(),
-        first_broken_id: 3,
+        ok: res.ok,
+        entries: res.entries,
+        head_hash: res.head_hash,
+        last_verified: res.last_verified,
+        first_broken_id: res.first_broken_id,
       });
+    } catch (e) {
+      console.error('Tamper demo failed:', e);
     } finally {
       setTampering(false);
     }
   };
 
-  const handleRestoreChain = () => {
-    updateChainStatus({
-      ok: true,
-      entries: chain.entries,
-      head_hash: chain.head_hash,
-      last_verified: new Date().toISOString(),
-      first_broken_id: undefined,
-    });
+  const handleRestoreChain = async () => {
+    setVerifying(true);
+    try {
+      await api.clearAuditLogs();
+      const res = await api.verifyChain();
+      updateChainStatus({
+        ok: res.ok,
+        entries: res.entries,
+        head_hash: res.head_hash,
+        last_verified: res.last_verified,
+        first_broken_id: undefined,
+      });
+    } catch (e) {
+      console.error('Failed to reset ledger:', e);
+    } finally {
+      setVerifying(false);
+    }
   };
 
   return (
     <div
-      className={`rounded-card border p-4 flex flex-col justify-between transition-colors ${
-        chain.ok ? 'border-line bg-surface' : 'border-block bg-block-bg/20'
+      className={`rounded-card border p-3.5 flex flex-col justify-between h-full overflow-hidden transition-colors ${
+        chain.ok ? 'border-line bg-surface' : 'border-block/80 bg-block-bg/25 shadow-sm shadow-block/10'
       }`}
     >
-      <div>
-        <div className="flex items-center justify-between pb-2 border-b border-line mb-3">
+      <div className="overflow-y-auto pr-0.5 space-y-2">
+        <div className="flex items-center justify-between pb-2 border-b border-line mb-2">
           <div className="flex items-center gap-1.5">
-            <Link className="w-3.5 h-3.5 text-accent" />
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+            <Link className="w-3.5 h-3.5 text-accent shrink-0" />
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted truncate">
               Audit Chain Integrity
             </h3>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {chain.ok ? (
-              <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-allow">
-                <ShieldCheck className="w-4 h-4 text-allow" />
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-allow bg-allow-bg/60 border border-allow/30 px-1.5 py-0.5 rounded">
+                <ShieldCheck className="w-3 h-3 text-allow" />
                 CHAIN INTACT
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-block">
-                <ShieldAlert className="w-4 h-4 text-block animate-pulse" />
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-block bg-block-bg border border-block/40 px-1.5 py-0.5 rounded animate-pulse">
+                <ShieldAlert className="w-3 h-3 text-block" />
                 TAMPER DETECTED
               </span>
             )}
@@ -88,43 +98,42 @@ export const ChainCard: React.FC = () => {
         </div>
 
         {!chain.ok && (
-          <div className="mb-3 p-2.5 rounded-lg border border-block/40 bg-block-bg text-xs font-mono text-block flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="p-2 rounded-md border border-block/50 bg-block-bg/40 text-[10px] font-mono text-block flex items-start gap-1.5 leading-snug">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <div>
-              <strong>Cryptographic Violation:</strong> Prev-hash mismatch discovered at record #
-              {chain.first_broken_id ?? 'Unknown'}. Audit history has been modified out-of-band!
+              <strong className="font-semibold">Cryptographic Violation:</strong> Prev-hash mismatch at record #{chain.first_broken_id ?? '1'}. Ledger modified out-of-band!
             </div>
           </div>
         )}
 
-        <div className="space-y-2 text-xs">
+        <div className="space-y-1.5 text-[11px]">
           <div className="flex items-center justify-between">
-            <span className="text-muted">Ledger Head:</span>
+            <span className="text-muted text-[10px]">Ledger Head:</span>
             <HashChip hash={chain.head_hash} truncateLength={6} />
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-muted">Blocks Verified:</span>
-            <span className="font-mono font-semibold text-ink">{chain.entries} blocks</span>
+            <span className="text-muted text-[10px]">Blocks Verified:</span>
+            <span className="font-mono font-semibold text-ink text-[10px]">{chain.entries} blocks</span>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-muted">Last Scanned:</span>
-            <span className="font-mono text-muted text-[11px]">
+            <span className="text-muted text-[10px]">Last Scanned:</span>
+            <span className="font-mono text-muted text-[10px]">
               {new Date(chain.last_verified).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2">
+      <div className="mt-2.5 pt-2 border-t border-line flex items-center justify-between gap-1.5">
         <button
           type="button"
           onClick={handleVerify}
           disabled={verifying}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-line bg-raised hover:bg-surface text-ink text-xs font-medium transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-md border border-line bg-raised hover:bg-surface text-ink text-[11px] font-medium transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${verifying ? 'animate-spin text-accent' : ''}`} />
+          <RefreshCw className={`w-3 h-3 ${verifying ? 'animate-spin text-accent' : ''}`} />
           <span>{verifying ? 'Verifying...' : 'Verify Ledger'}</span>
         </button>
 
@@ -134,17 +143,18 @@ export const ChainCard: React.FC = () => {
             onClick={handleTamperTest}
             disabled={tampering}
             title="Inject simulated modification to test tamper detection"
-            className="text-[11px] font-mono px-2 py-1.5 rounded-lg border border-line hover:border-block text-muted hover:text-block transition-colors"
+            className="text-[10px] font-mono px-2 py-1 rounded-md border border-line hover:border-block text-muted hover:text-block transition-colors"
           >
-            Simulate Tamper
+            {tampering ? 'Tampering...' : 'Simulate Tamper'}
           </button>
         ) : (
           <button
             type="button"
             onClick={handleRestoreChain}
-            className="text-[11px] font-mono px-2 py-1.5 rounded-lg border border-line hover:border-allow text-muted hover:text-allow transition-colors"
+            disabled={verifying}
+            className="text-[10px] font-mono px-2 py-1 rounded-md border border-line hover:border-allow text-muted hover:text-allow transition-colors font-bold"
           >
-            Reset
+            Reset Ledger
           </button>
         )}
       </div>

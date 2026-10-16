@@ -28,7 +28,7 @@ class ContentInspector:
 
     def score_prompt_injection(self, text: str) -> Tuple[float, list[str]]:
         """
-        Calculates prompt injection score based on heuristic rules and patterns.
+        Calculates prompt injection score based on real ML classifier and heuristic signatures.
         Simulates / aligns with Meta Llama Prompt Guard 2 scoring.
         Returns:
             (max_score, matching_reasons)
@@ -44,6 +44,16 @@ class ContentInspector:
                 reasons.append(f"Prompt injection pattern detected: '{pattern}'")
                 if score > max_score:
                     max_score = score
+
+        # Real ML Security Classifier scoring
+        try:
+            from ..ml import predict_security_intent
+            ml_verdict = predict_security_intent(text)
+            if ml_verdict.probabilities.get("block", 0.0) >= 0.40 or ml_verdict.risk_score > max_score:
+                max_score = max(max_score, ml_verdict.risk_score)
+                reasons.append(f"ML Prompt Guard flagged risk score {ml_verdict.risk_score:.2f} (tier: {ml_verdict.decision.value})")
+        except Exception:
+            pass
 
         return round(max_score, 3), reasons
 

@@ -9,8 +9,12 @@ from pathlib import Path
 
 from ..config import settings
 from ..models import AuditEntry
-
-GENESIS_HASH = "0" * 64
+from .chain import (
+    GENESIS_HASH,
+    canonical_json_dumps,
+    compute_entry_hash,
+    build_entry_canonical_payload,
+)
 
 class AuditLedger:
     def __init__(self, db_path: Optional[Path] = None, hmac_key: Optional[str] = None):
@@ -24,6 +28,25 @@ class AuditLedger:
         conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def _create_triggers(self, conn: sqlite3.Connection):
+        """
+        Installs SQLite immutability triggers on the audit table to prevent UPDATE and DELETE.
+        """
+        conn.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_audit_no_update
+        BEFORE UPDATE ON audit
+        BEGIN
+            SELECT RAISE(ABORT, 'immutable ledger: UPDATE operations are strictly prohibited on the audit ledger');
+        END;
+        """)
+        conn.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_audit_no_delete
+        BEFORE DELETE ON audit
+        BEGIN
+            SELECT RAISE(ABORT, 'immutable ledger: DELETE operations are strictly prohibited on the audit ledger');
+        END;
+        """)
 
     def _init_db(self):
         with self._lock:
@@ -57,21 +80,34 @@ class AuditLedger:
                     conn.execute("ALTER TABLE audit ADD COLUMN user_input TEXT")
                 except Exception:
                     pass
+
+                self._create_triggers(conn)
                 conn.commit()
 
     def compute_hash(self, prev_hash: str, ts: str, source: str, tool: str, 
                      args_str: str, decision: str, reason: str, rule_id: str, 
-                     policy_hash: str) -> str:
+                     policy_hash: str, score: float = 0.0,
+                     agent_thought: Optional[str] = None, user_input: Optional[str] = None,
+                     session: str = "default", task: str = "default") -> str:
         """
-        Compute deterministic cryptographic hash over the canonical payload.
+        Compute deterministic cryptographic hash over the canonical JSON payload with HMAC-SHA256.
         """
-        canonical_payload = (
-            f"{prev_hash}|{ts}|{source}|{tool}|{args_str}|"
-            f"{decision}|{reason}|{rule_id}|{policy_hash}"
+        canonical_json = build_entry_canonical_payload(
+            ts=ts,
+            session=session,
+            task=task,
+            source=source,
+            tool=tool,
+            args_str=args_str,
+            decision=decision,
+            reason=reason,
+            rule_id=rule_id,
+            score=score,
+            policy_hash=policy_hash,
+            agent_thought=agent_thought,
+            user_input=user_input
         )
-        if self.hmac_key:
-            return hmac.new(self.hmac_key, canonical_payload.encode("utf-8"), hashlib.sha256).hexdigest()
-        return hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
+        return compute_entry_hash(prev_hash, canonical_json, self.hmac_key)
 
     def get_latest_hash(self) -> str:
         with self._get_connection() as conn:
@@ -83,29 +119,43 @@ class AuditLedger:
             return GENESIS_HASH
 
     def append(self, session: str, task: str, source: str, tool: str, 
-               args: dict[str, Any], decision: str, reason: str, 
+               args: dict[str, Any] | str, decision: str, reason: str, 
                rule_id: str, score: float = 0.0, policy_hash: Optional[str] = None,
                agent_thought: Optional[str] = None, user_input: Optional[str] = None) -> AuditEntry:
         """
-        Write-ahead append to the tamper-evident cryptographic hash chain.
+        Write-ahead append to the tamper-evident cryptographic hash chain using canonical JSON & HMAC-SHA256.
         """
         policy_hash = policy_hash or settings.POLICY_HASH
         ts = datetime.now(timezone.utc).isoformat()
-        args_str = json.dumps(args, sort_keys=True)
+
+        # Canonical JSON serialization for arguments
+        if isinstance(args, str):
+            try:
+                parsed_args = json.loads(args)
+                args_str = canonical_json_dumps(parsed_args)
+            except Exception:
+                args_str = args
+        else:
+            args_str = canonical_json_dumps(args)
 
         with self._lock:
             prev_hash = self.get_latest_hash()
-            curr_hash = self.compute_hash(
-                prev_hash=prev_hash,
+            canonical_json = build_entry_canonical_payload(
                 ts=ts,
+                session=session,
+                task=task,
                 source=source,
                 tool=tool,
                 args_str=args_str,
                 decision=decision,
                 reason=reason,
                 rule_id=rule_id,
-                policy_hash=policy_hash
+                score=score,
+                policy_hash=policy_hash,
+                agent_thought=agent_thought,
+                user_input=user_input
             )
+            curr_hash = compute_entry_hash(prev_hash, canonical_json, self.hmac_key)
 
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -177,20 +227,30 @@ class AuditLedger:
             return None
 
     def tamper_entry(self, entry_id: int, new_args: str = '{"tampered": true, "attack": "bypassed"}') -> bool:
+        """
+        Demonstration/tamper testing endpoint support:
+        Temporarily drops the immutability trigger to simulate an attacker who has disk-level
+        access and modifies a record in the database directly. Reinstalls trigger immediately after.
+        """
         with self._lock:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
+                cursor.execute("DROP TRIGGER IF EXISTS trg_audit_no_update")
                 cursor.execute("UPDATE audit SET args = ? WHERE id = ?", (new_args, entry_id))
+                rowcount = cursor.rowcount
+                self._create_triggers(conn)
                 conn.commit()
-                return cursor.rowcount > 0
+                return rowcount > 0
 
     def clear_ledger(self):
         """
-        Clears all audit records and resets autoincrement ID back to zero.
+        Administrative purge: clears all audit records and resets autoincrement sequence.
+        Drops delete trigger during purge and reinstalls it immediately after.
         """
         with self._lock:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
+                cursor.execute("DROP TRIGGER IF EXISTS trg_audit_no_delete")
                 cursor.execute("DELETE FROM audit")
                 try:
                     cursor.execute("DELETE FROM sqlite_sequence WHERE name='audit'")
@@ -198,5 +258,7 @@ class AuditLedger:
                     pass
                 conn.commit()
                 cursor.execute("VACUUM")
+                self._create_triggers(conn)
+                conn.commit()
 
 audit_ledger = AuditLedger()

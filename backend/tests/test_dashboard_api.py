@@ -90,3 +90,32 @@ def test_api_post_audit(client):
     assert data["ok"] is True
     assert data["entry"]["session"] == "test-session"
 
+def test_api_controls_status(client):
+    response = client.get("/api/controls/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "controls" in data
+    assert "total" in data
+    assert data["total"] == 8
+    assert len(data["controls"]) == 8
+
+    # Verify each control contract
+    for ctrl in data["controls"]:
+        assert "name" in ctrl
+        assert "state" in ctrl
+        assert ctrl["state"] in ("verified", "failed", "unverified")
+        assert "detail" in ctrl
+        assert "checked_at" in ctrl
+
+    # Truthful check: Since docker daemon is unavailable on host, container probe must NOT be fake green
+    container_ctrl = next(c for c in data["controls"] if c["name"] == "Container Running")
+    assert container_ctrl["state"] == "unverified"
+    assert "Docker CLI not found" in container_ctrl["detail"] or "unresponsive" in container_ctrl["detail"]
+
+    # Policy and audit ledger should be actively verified
+    policy_ctrl = next(c for c in data["controls"] if c["name"] == "Policy Engine Active")
+    assert policy_ctrl["state"] == "verified"
+
+    audit_ctrl = next(c for c in data["controls"] if c["name"] == "Audit Chain Intact")
+    assert audit_ctrl["state"] == "verified"
+

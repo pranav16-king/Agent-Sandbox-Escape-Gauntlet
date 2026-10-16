@@ -15,7 +15,7 @@ export const TopBar: React.FC = () => {
   const { largeMode, setLargeMode } = useTheme();
 
   return (
-    <header className="sticky top-0 z-30 h-14 border-b border-line bg-surface/90 backdrop-blur-md px-4 flex items-center justify-between">
+    <header className="shrink-0 sticky top-0 z-30 h-14 border-b border-line bg-surface/90 backdrop-blur-md px-4 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <button
           type="button"

@@ -27,6 +27,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+hello.txt
+
 
 # ------------------------------------------------------------------------------
 # Virtual Environments

@@ -36,37 +36,7 @@ class PolicyEngine:
                     0.7
                 )
 
-            # 3. Pre-call Prompt Injection analysis on arguments (INJ-001 / INJ-002)
-            args_text = " ".join(str(v) for v in call.args.values())
-            inj_score, inj_reasons = content_inspector.score_prompt_injection(args_text)
-
-            if inj_score > 0.8:
-                return (
-                    DecisionType.BLOCK,
-                    f"Prompt injection detected in tool arguments (Score: {inj_score}): {'; '.join(inj_reasons)}",
-                    "INJ-001",
-                    inj_score
-                )
-            elif inj_score >= 0.5:
-                return (
-                    DecisionType.ASK,
-                    f"Suspicious prompt pattern in tool arguments (Score: {inj_score}): {'; '.join(inj_reasons)}",
-                    "INJ-002",
-                    inj_score
-                )
-
-            # 4. Sequence & Taint Check - Lethal Trifecta (TAINT-001)
-            is_outbound = (call.tool.value == "http") or (call.tool.value == "shell" and any(k in args_text for k in ("curl", "wget", "socket", "http")))
-            is_lethal, lethal_reason = taint_tracker.check_lethal_trifecta(call.agent_id, is_outbound)
-            if is_lethal:
-                return (
-                    DecisionType.BLOCK,
-                    lethal_reason,
-                    "TAINT-001",
-                    0.95
-                )
-
-            # 5. Tool-specific security verification
+            # 3. Tool-specific security verification (filesystem, shell allowlist, network egress)
             if call.tool.value == "file":
                 path = call.args.get("path", "")
                 op = call.args.get("op", "read")
@@ -82,9 +52,11 @@ class PolicyEngine:
 
             elif call.tool.value == "shell":
                 cmd = call.args.get("cmd", "")
-                allowed, rule_id, reason = check_command_security(cmd)
-                if not allowed:
+                cmd_decision, rule_id, reason = check_command_security(cmd)
+                if cmd_decision == DecisionType.BLOCK:
                     return DecisionType.BLOCK, reason, rule_id, 0.90
+                elif cmd_decision == DecisionType.ASK:
+                    return DecisionType.ASK, reason, rule_id, 0.60
 
                 # Also inspect for honeytoken references in shell command
                 for ht in ["/.aws", "/.ssh", "/.env", "fake_aws"]:
@@ -102,7 +74,60 @@ class PolicyEngine:
                 if not allowed:
                     return DecisionType.BLOCK, reason, rule_id, 0.95
 
-            # 6. All checks passed
+            # 4. Sequence & Taint Check - Lethal Trifecta (TAINT-001)
+            args_text = " ".join(str(v) for v in call.args.values())
+            is_outbound = (call.tool.value == "http") or (call.tool.value == "shell" and any(k in args_text for k in ("curl", "wget", "socket", "http")))
+            is_lethal, lethal_reason = taint_tracker.check_lethal_trifecta(call.agent_id, is_outbound)
+            if is_lethal:
+                return (
+                    DecisionType.BLOCK,
+                    lethal_reason,
+                    "TAINT-001",
+                    0.95
+                )
+
+            # 5. Pre-call Prompt Injection analysis on natural language arguments & user input (INJ-001 / INJ-002)
+            scan_payload = f"{call.user_input or ''} {call.args.get('content', '')} {call.agent_thought or ''}".strip()
+            if not scan_payload:
+                scan_payload = args_text
+            inj_score, inj_reasons = content_inspector.score_prompt_injection(scan_payload)
+
+            if inj_score > 0.8:
+                return (
+                    DecisionType.BLOCK,
+                    f"Prompt injection detected in tool arguments (Score: {inj_score}): {'; '.join(inj_reasons)}",
+                    "INJ-001",
+                    inj_score
+                )
+            elif inj_score >= 0.5:
+                return (
+                    DecisionType.ASK,
+                    f"Suspicious prompt pattern in tool arguments (Score: {inj_score}): {'; '.join(inj_reasons)}",
+                    "INJ-002",
+                    inj_score
+                )
+
+            # 6. Persistent Session Taint Check - Tainted Session Escalation
+            is_tainted = taint_tracker.is_session_tainted(call.agent_id)
+            if is_tainted:
+                # Any side-effect tool call escalates from ALLOW to ASK
+                is_side_effect = False
+                if call.tool.value == "file" and call.args.get("op") in ("write", "delete", "append"):
+                    is_side_effect = True
+                elif call.tool.value == "http":
+                    is_side_effect = True
+                elif call.tool.value == "shell":
+                    is_side_effect = True
+
+                if is_side_effect:
+                    return (
+                        DecisionType.ASK,
+                        f"Session '{call.agent_id}' is tainted; side-effect tool call '{call.tool.value}' escalated to HITL approval",
+                        "TAINT-ASK",
+                        0.75
+                    )
+
+            # 7. All checks passed under allowlist policy
             return DecisionType.ALLOW, "Tool call approved under active security policy", "POL-PASS", inj_score
 
         except Exception as e:

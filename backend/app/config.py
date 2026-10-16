@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     # Security & Tokens
     AGENT_AUTH_TOKEN: str = os.getenv("AGENT_AUTH_TOKEN", "gauntlet-agent-secret-key-2026")
+    APPROVER_TOKEN: str = os.getenv("APPROVER_TOKEN", "sbx-approver-secret-token-2026")
     HMAC_SECRET_KEY: str = os.getenv("HMAC_SECRET_KEY", "sbx-gauntlet-hmac-host-key-sha256")
     POLICY_HASH: str = "v1-opa-rego-sha256-strict"
 
@@ -39,6 +40,9 @@ class Settings(BaseSettings):
         "raw.githubusercontent.com",
         "api.github.com",
         "jsonplaceholder.typicode.com",
+        "huggingface.co",
+        "api.openai.com",
+        "api.anthropic.com",
     ]
 
     # Blocked Network Targets
@@ -88,6 +92,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
+APPROVER_TOKEN = settings.APPROVER_TOKEN
 
 # Ensure directories exist
 settings.DATA_DIR.mkdir(parents=True, exist_ok=True)

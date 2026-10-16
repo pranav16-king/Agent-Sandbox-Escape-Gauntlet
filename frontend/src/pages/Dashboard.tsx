@@ -21,18 +21,18 @@ export const Dashboard: React.FC = () => {
       </section>
 
       {/* Row 2: Live Agent Activity (col 5) | Pipeline Flow (col 4) | System Status + Chain Card (col 3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        <div className="lg:col-span-5 h-[340px]">
-          <AgentFeed maxHeight="h-[270px]" />
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch min-h-[450px]">
+        <div className="lg:col-span-5 h-[450px]">
+          <AgentFeed maxHeight="h-[370px]" />
         </div>
-        <div className="lg:col-span-4 h-[340px]">
+        <div className="lg:col-span-4 h-[450px]">
           <PipelineFlow />
         </div>
-        <div className="lg:col-span-3 flex flex-col gap-4 h-[340px]">
-          <div className="flex-1 min-h-0">
+        <div className="lg:col-span-3 flex flex-col gap-3 h-[450px]">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <SystemStatus />
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <ChainCard />
           </div>
         </div>
