@@ -168,6 +168,7 @@ def read_root():
     }
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check():
     return {
         "status": "healthy",
@@ -428,6 +429,44 @@ def get_api_audit_logs(
         ql = q.lower()
         data = [e for e in data if ql in str(e.get("args", "")).lower() or ql in str(e.get("reason", "")).lower()]
     return {"entries": data, "total": len(data)}
+
+@app.post("/api/audit")
+def api_create_audit_entry(req: dict[str, Any] = None):
+    """
+    Appends an audit record to the tamper-evident SHA-256 hash ledger.
+    """
+    req = req or {}
+    session = str(req.get("session") or "default")
+    task = str(req.get("task") or "default-task")
+    source = str(req.get("source") or "gateway")
+    tool = str(req.get("tool") or "file")
+    args = req.get("args") or {}
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except Exception:
+            args = {"raw": args}
+    decision = str(req.get("decision") or "allow").lower()
+    reason = str(req.get("reason") or "Audit record created")
+    rule_id = str(req.get("rule_id") or "AUDIT-001")
+    score = float(req.get("score") or 0.0)
+    agent_thought = req.get("agent_thought")
+    user_input = req.get("user_input")
+
+    entry = audit_ledger.append(
+        session=session,
+        task=task,
+        source=source,
+        tool=tool,
+        args=args,
+        decision=decision,
+        reason=reason,
+        rule_id=rule_id,
+        score=score,
+        agent_thought=agent_thought,
+        user_input=user_input
+    )
+    return {"ok": True, "entry": entry.model_dump()}
 
 @app.post("/api/audit/verify")
 def api_verify_chain():

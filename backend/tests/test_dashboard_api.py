@@ -68,3 +68,25 @@ def test_api_audit_clear(client):
     assert snapshot["counts"]["total"] == 0
     assert len(snapshot["recent_logs"]) == 0
     assert snapshot["chain"]["entries"] == 0
+
+def test_api_health(client):
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+def test_api_post_audit(client):
+    payload = {
+        "session": "test-session",
+        "task": "probe",
+        "source": "automated-probe",
+        "tool": "file",
+        "args": {"path": "test.txt"},
+        "decision": "allow",
+        "reason": "Test audit probe"
+    }
+    response = client.post("/api/audit", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
+    assert data["entry"]["session"] == "test-session"
+
