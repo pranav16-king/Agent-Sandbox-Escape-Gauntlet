@@ -217,6 +217,14 @@ class AuditLedger:
             rows = cursor.fetchall()
             return [AuditEntry(**dict(row)) for row in rows]
 
+    def get_count(self) -> int:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM audit")
+            row = cursor.fetchone()
+            return row[0] if row else 0
+
+
     def get_entry_by_id(self, entry_id: int) -> Optional[AuditEntry]:
         with self._get_connection() as conn:
             cursor = conn.cursor()

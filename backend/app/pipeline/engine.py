@@ -108,7 +108,12 @@ class SandboxGateway:
                 })
         return pending_list
 
-    async def process_tool_call(self, call: ToolCall, session_id: Optional[str] = None) -> GatewayResponse:
+    async def process_tool_call(
+        self,
+        call: ToolCall,
+        session_id: Optional[str] = None,
+        wait_for_approval: bool = False
+    ) -> GatewayResponse:
         session = session_id or call.agent_id
 
         # Stage 1 & 2: Evaluate Policy Gate
@@ -144,17 +149,31 @@ class SandboxGateway:
 
         # Stage 4: Handle ASK (Human In The Loop queue with 60s timeout & default deny)
         if decision == DecisionType.ASK:
-            resolved_decision, resolved_reason = await self._await_human_approval(
-                audit_id=audit_entry.id,
-                session=session,
-                tool=call.tool.value,
-                args=call.args,
-                reason=reason,
-                risk_score=score,
-                timeout_sec=60.0
+            approval_task = asyncio.create_task(
+                self._await_human_approval(
+                    audit_id=audit_entry.id,
+                    session=session,
+                    tool=call.tool.value,
+                    args=call.args,
+                    reason=reason,
+                    risk_score=score,
+                    timeout_sec=60.0
+                )
             )
-            decision = resolved_decision
-            reason = resolved_reason
+            if wait_for_approval:
+                resolved_decision, resolved_reason = await approval_task
+                decision = resolved_decision
+                reason = resolved_reason
+            else:
+                return GatewayResponse(
+                    decision=DecisionType.ASK,
+                    reason=f"Action requires operator approval: {reason}",
+                    rule_id=rule_id,
+                    score=score,
+                    result={"status": "pending_approval", "detail": "Dispatched to Human-in-the-Loop operator approval queue", "audit_id": audit_entry.id},
+                    audit_id=audit_entry.id,
+                    policy_hash=settings.POLICY_HASH
+                )
 
         # Stage 4b: If Blocked or Denied, return without executing
         if decision != DecisionType.ALLOW:
@@ -251,6 +270,17 @@ class SandboxGateway:
         try:
             # 60s timeout with default deny (fail-closed)
             decision, res_reason = await asyncio.wait_for(future, timeout=timeout_sec)
+            if decision == DecisionType.ALLOW:
+                try:
+                    raw_result = sandbox_executor.run_in_container(session, tool, args)
+                    inspected_result = self._inspect_and_sanitize_result(session, tool, raw_result)
+                    self._notify("tool_execution", {
+                        "audit_id": audit_id,
+                        "tool": tool,
+                        "result": inspected_result
+                    })
+                except Exception as ex:
+                    logger.error(f"Execution after approval failed: {ex}")
             return decision, res_reason
         except asyncio.TimeoutError:
             record.status = "expired"

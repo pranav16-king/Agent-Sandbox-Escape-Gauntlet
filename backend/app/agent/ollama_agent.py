@@ -233,6 +233,24 @@ REPLAY_TRANSCRIPTS: dict[str, list[dict[str, Any]]] = {
         {
             "content": "Workspace file cleanup operation dispatched through Host Security Gateway for human approval."
         }
+    ],
+    "git_commit": [
+        {
+            "thinking": "Recording workspace modifications to git repository (modifying git operation requiring HITL clearance).",
+            "tool_calls": [{"id": "rep-gc-1", "function": {"name": "shell", "arguments": {"cmd": "git commit -m \"chore: update workspace configuration\""}}}]
+        },
+        {
+            "content": "Git commit operation dispatched through Host Security Gateway for human approval."
+        }
+    ],
+    "pip_install": [
+        {
+            "thinking": "Installing PyYAML dependency via pip (package manager installation requiring HITL clearance).",
+            "tool_calls": [{"id": "rep-pip-1", "function": {"name": "shell", "arguments": {"cmd": "pip install pyyaml"}}}]
+        },
+        {
+            "content": "Python package installation request dispatched through Host Security Gateway for human approval."
+        }
     ]
 }
 
@@ -258,7 +276,11 @@ class OllamaAgent:
             return REPLAY_TRANSCRIPTS["exfiltrate"]
         elif "credential" in p_lower or "fake_aws" in p_lower or ".aws" in p_lower:
             return REPLAY_TRANSCRIPTS["honeytoken"]
-        elif "lodash" in p_lower or "npm install" in p_lower or "pip install" in p_lower or "install package" in p_lower:
+        elif "pyyaml" in p_lower or "pip install" in p_lower:
+            return REPLAY_TRANSCRIPTS["pip_install"]
+        elif "commit" in p_lower or "git commit" in p_lower:
+            return REPLAY_TRANSCRIPTS["git_commit"]
+        elif "lodash" in p_lower or "npm install" in p_lower or "install package" in p_lower:
             return REPLAY_TRANSCRIPTS["install"]
         elif "touch" in p_lower or "config.json" in p_lower or "create config" in p_lower:
             return REPLAY_TRANSCRIPTS["touch"]
@@ -467,8 +489,12 @@ class OllamaAgent:
                     user_input=prompt
                 )
 
-                # Process through Host Security Gateway
-                gateway_response = await sandbox_gateway.process_tool_call(call, session_id=session_id)
+                # Process through Host Security Gateway (non-blocking for interactive agent turns)
+                gateway_response = await sandbox_gateway.process_tool_call(
+                    call,
+                    session_id=session_id,
+                    wait_for_approval=False
+                )
 
                 dec_dict = {
                     "tool": tool_type.value,

@@ -58,6 +58,7 @@ export interface LiveState {
   updateChainStatus: (chain: ChainStatus) => void;
   updateScenarioStatus: (id: string, status: ScenarioItem['status'], outcome?: string) => void;
   setWorkspaceInfo: (workspace: WorkspaceInfo) => void;
+  mergeAuditLogs: (entries: AuditEntry[]) => void;
   clearLogs: () => void;
 }
 
@@ -142,7 +143,20 @@ export const useLiveStore = create<LiveState>((set) => ({
       switch (event.type) {
         case 'audit': {
           const entry = event.data as AuditEntry;
-          const newLogs = [entry, ...state.auditLogs].slice(0, MAX_AUDIT_LOGS);
+          if (!entry || entry.id === undefined || entry.id === null) {
+            return { lastSeq: nextSeq };
+          }
+
+          // Deduplicate by entry.id: if already present, do not duplicate
+          const alreadyExists = state.auditLogs.some((l) => l.id === entry.id);
+          if (alreadyExists) {
+            return { lastSeq: nextSeq };
+          }
+
+          // Insert / prepend in descending ID order
+          const newLogs = [entry, ...state.auditLogs]
+            .sort((a, b) => (b.id !== a.id ? b.id - a.id : new Date(b.ts).getTime() - new Date(a.ts).getTime()))
+            .slice(0, MAX_AUDIT_LOGS);
 
           const isBlock = entry.decision === 'block';
           const isAllow = entry.decision === 'allow';
@@ -150,7 +164,7 @@ export const useLiveStore = create<LiveState>((set) => ({
 
           const nextCounts = {
             ...state.counts,
-            total: state.counts.total + 1,
+            total: Math.max(state.counts.total + 1, newLogs.length),
             allow: state.counts.allow + (isAllow ? 1 : 0),
             block: state.counts.block + (isBlock ? 1 : 0),
             ask: state.counts.ask + (isAsk ? 1 : 0),
@@ -343,6 +357,41 @@ export const useLiveStore = create<LiveState>((set) => ({
         block: outcome !== 'approved' ? state.counts.block + 1 : state.counts.block,
       },
     }));
+  },
+
+  mergeAuditLogs: (entries: AuditEntry[]) => {
+    if (!entries || entries.length === 0) return;
+    set((state) => {
+      const existingMap = new Map<number, AuditEntry>();
+      for (const log of state.auditLogs) {
+        existingMap.set(log.id, log);
+      }
+      for (const log of entries) {
+        if (log && log.id !== undefined && log.id !== null) {
+          existingMap.set(log.id, log);
+        }
+      }
+      const mergedLogs = Array.from(existingMap.values())
+        .sort((a, b) => (b.id !== a.id ? b.id - a.id : new Date(b.ts).getTime() - new Date(a.ts).getTime()))
+        .slice(0, MAX_AUDIT_LOGS);
+
+      const countAllow = mergedLogs.filter((e) => e.decision === 'allow').length;
+      const countBlock = mergedLogs.filter((e) => e.decision === 'block').length;
+      const countAsk = mergedLogs.filter((e) => e.decision === 'ask').length;
+      const totalCount = Math.max(state.counts.total, mergedLogs.length);
+
+      return {
+        auditLogs: mergedLogs,
+        counts: {
+          ...state.counts,
+          total: totalCount,
+          allow: Math.max(state.counts.allow, countAllow),
+          block: Math.max(state.counts.block, countBlock),
+          ask: Math.max(state.counts.ask, countAsk),
+          attacks_blocked: Math.max(state.counts.attacks_blocked, countBlock),
+        },
+      };
+    });
   },
 
   clearLogs: () => {

@@ -136,3 +136,12 @@ def test_api_controls_status(client):
     ml_ctrl = next(c for c in data["controls"] if c["name"] == "Security ML Classifier Active")
     assert ml_ctrl["state"] == "verified"
 
+def test_websocket_ping_pong_and_connection(client):
+    with client.websocket_connect("/ws") as ws:
+        # Ping pong test
+        ws.send_text('{"type": "ping"}')
+        pong = ws.receive_json()
+        assert pong["type"] == "pong"
+        assert "ts" in pong
+
+

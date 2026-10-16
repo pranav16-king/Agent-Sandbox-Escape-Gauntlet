@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, Download, Filter, Trash2 } from 'lucide-react';
+import { Search, Download, Filter, Trash2, RefreshCw } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
 import { useUiStore } from '@/store/uiStore';
 import { api } from '@/api/rest';
@@ -27,7 +27,9 @@ function formatArgsSummary(argsStr: string): string {
 export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360px]' }) => {
   const auditLogs = useLiveStore((s) => s.auditLogs);
   const clearLogs = useLiveStore((s) => s.clearLogs);
+  const mergeAuditLogs = useLiveStore((s) => s.mergeAuditLogs);
   const [isClearing, setIsClearing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const {
     filterKind,
     setFilterKind,
@@ -38,6 +40,34 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
     openDrawer,
     selectedAuditId,
   } = useUiStore();
+
+  const fetchLatestLogs = useCallback(async (limit: number = 100, showSpinner: boolean = false) => {
+    if (showSpinner) setIsRefreshing(true);
+    try {
+      const res = await api.getAuditLogs({ limit });
+      if (res && res.entries && res.entries.length > 0) {
+        mergeAuditLogs(res.entries);
+      }
+    } catch (err) {
+      console.error('Failed to fetch latest audit logs:', err);
+    } finally {
+      if (showSpinner) {
+        setTimeout(() => setIsRefreshing(false), 350);
+      }
+    }
+  }, [mergeAuditLogs]);
+
+  useEffect(() => {
+    // Immediate fetch on mount to guarantee fresh logs upon opening
+    fetchLatestLogs(100, false);
+
+    // Periodic fallback reconciliation every 3.5s to prevent UI desync
+    const interval = setInterval(() => {
+      fetchLatestLogs(50, false);
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [fetchLatestLogs]);
 
   const handleClear = async () => {
     if (!window.confirm('Are you sure you want to clear all audit records and reset the ledger?')) {
@@ -174,6 +204,18 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
               className="w-full pl-8 pr-3 py-1.5 text-xs bg-surface border border-line rounded-lg text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             />
           </div>
+
+          {/* Refresh Logs */}
+          <button
+            type="button"
+            onClick={() => fetchLatestLogs(100, true)}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-line bg-surface hover:bg-raised text-ink transition-colors disabled:opacity-50"
+            title="Fetch and synchronize latest audit records"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-muted ${isRefreshing ? 'animate-spin text-accent' : ''}`} />
+            <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
 
           {/* Export CSV */}
           <button

@@ -1,17 +1,42 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Database } from 'lucide-react';
 import { LogTable } from '@/features/logs/LogTable';
 import { ChainCard } from '@/features/chain/ChainCard';
 import { useLiveStore } from '@/store/liveStore';
+import { api } from '@/api/rest';
 
 export const AuditLog: React.FC = () => {
   const counts = useLiveStore((s) => s.counts);
+  const mergeAuditLogs = useLiveStore((s) => s.mergeAuditLogs);
+  const connectionStatus = useLiveStore((s) => s.connectionStatus);
+
+  useEffect(() => {
+    api.getAuditLogs({ limit: 100 })
+      .then((res) => {
+        if (res && res.entries && res.entries.length > 0) {
+          mergeAuditLogs(res.entries);
+        }
+      })
+      .catch((err) => console.error('Failed to sync audit logs on mount:', err));
+  }, [mergeAuditLogs]);
 
   return (
     <div className="space-y-4 max-w-[1920px] mx-auto pb-10">
       <div className="flex items-center justify-between pb-3 border-b border-line">
         <div>
-          <h2 className="text-base font-bold text-ink">Tamper-Evident Audit Ledger</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-ink">Tamper-Evident Audit Ledger</h2>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              connectionStatus === 'connected'
+                ? 'bg-allow-bg text-allow border border-allow/30'
+                : 'bg-ask-bg text-ask border border-ask/30'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                connectionStatus === 'connected' ? 'bg-allow animate-pulse' : 'bg-ask'
+              }`} />
+              {connectionStatus === 'connected' ? 'LIVE SYNC' : connectionStatus.toUpperCase()}
+            </span>
+          </div>
           <p className="text-xs text-muted">
             Append-only, SHA-256 hash-chained log recording every agent tool invocation, decision, and risk score.
           </p>
