@@ -96,8 +96,8 @@ def test_api_controls_status(client):
     data = response.json()
     assert "controls" in data
     assert "total" in data
-    assert data["total"] == 8
-    assert len(data["controls"]) == 8
+    assert data["total"] == 9
+    assert len(data["controls"]) == 9
 
     # Verify each control contract
     for ctrl in data["controls"]:
@@ -118,4 +118,7 @@ def test_api_controls_status(client):
 
     audit_ctrl = next(c for c in data["controls"] if c["name"] == "Audit Chain Intact")
     assert audit_ctrl["state"] == "verified"
+
+    ml_ctrl = next(c for c in data["controls"] if c["name"] == "Security ML Classifier Active")
+    assert ml_ctrl["state"] == "verified"
 

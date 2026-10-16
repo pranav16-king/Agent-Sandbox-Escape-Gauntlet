@@ -395,6 +395,37 @@ def probe_policy_loaded() -> dict[str, Any]:
             "checked_at": ts
         }
 
+def probe_ml_classifier() -> dict[str, Any]:
+    """
+    Probes the Security ML Classifier model readiness, weights, and inference metrics.
+    """
+    ts = _iso_now()
+    try:
+        from .ml import security_classifier
+        if security_classifier.is_ready:
+            st = security_classifier.get_status()
+            acc = st.get("metrics", {}).get("test_accuracy", 0.0)
+            return {
+                "name": "Security ML Classifier Active",
+                "state": "verified",
+                "detail": f"Model active ({st.get('model_version')}) - 3-tier calibrated (acc: {acc*100:.1f}%)",
+                "checked_at": ts
+            }
+        else:
+            return {
+                "name": "Security ML Classifier Active",
+                "state": "unverified",
+                "detail": "ML model file not initialized",
+                "checked_at": ts
+            }
+    except Exception as e:
+        return {
+            "name": "Security ML Classifier Active",
+            "state": "unverified",
+            "detail": f"ML probe error: {str(e)[:100]}",
+            "checked_at": ts
+        }
+
 def get_all_controls_status() -> dict[str, Any]:
     """
     Runs all active probes truthfully and returns consolidated controls status.
@@ -409,6 +440,7 @@ def get_all_controls_status() -> dict[str, Any]:
         probe_dns_allowlist(),
         probe_audit_chain(),
         probe_policy_loaded(),
+        probe_ml_classifier(),
     ]
 
     verified = sum(1 for p in probes if p["state"] == "verified")

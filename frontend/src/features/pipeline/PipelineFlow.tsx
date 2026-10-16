@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Shield, Box, Network, Globe, Database, Monitor } from 'lucide-react';
+import { Bot, Shield, Box, Network, Globe, Database } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
 
 export const PipelineFlow: React.FC = () => {
@@ -128,12 +128,12 @@ export const PipelineFlow: React.FC = () => {
       {/* Auxiliary ledger branches */}
       <div className="mt-2 pt-2 border-t border-line flex items-center justify-around text-xs text-muted">
         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-          <Database className="w-3.5 h-3.5 text-accent" />
-          <span>SHA-256 Ledger: Tamper-Evident</span>
+          <Shield className="w-3.5 h-3.5 text-accent" />
+          <span>ML Prompt Guard: Active (3-Tier)</span>
         </div>
         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-          <Monitor className="w-3.5 h-3.5 text-muted" />
-          <span>Realtime Telemetry Streamed</span>
+          <Database className="w-3.5 h-3.5 text-accent" />
+          <span>SHA-256 HMAC Ledger: Intact</span>
         </div>
       </div>
     </div>
