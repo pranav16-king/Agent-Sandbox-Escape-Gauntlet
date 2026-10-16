@@ -40,15 +40,15 @@ export const TopBar: React.FC = () => {
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-1.5 ml-4 pl-4 border-l border-line text-xs font-mono text-muted">
-          <Sparkles className="w-3.5 h-3.5 text-accent" />
-          <span>Agent: <strong className="text-ink">Qwen3 4B (Ollama)</strong></span>
+        <div className="hidden lg:flex items-center gap-1.5 ml-3 pl-3 border-l border-line text-xs font-mono text-muted truncate">
+          <Sparkles className="w-3.5 h-3.5 text-accent shrink-0" />
+          <span className="truncate">Agent: <strong className="text-ink">Qwen3 4B</strong></span>
           <span className="text-muted/60">|</span>
-          <span>Shield: <strong className="text-ink">Prompt Guard 2 (86M)</strong></span>
+          <span className="truncate">Shield: <strong className="text-ink">Prompt Guard 2</strong></span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Connection status */}
         <ConnectionDot status={connectionStatus} retryCount={retryCount} />
 

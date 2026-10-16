@@ -29,25 +29,25 @@ export const PipelineFlow: React.FC = () => {
       </div>
 
       {/* Main flow line */}
-      <div className="relative py-4 flex items-center justify-between gap-1 text-center select-none overflow-x-auto">
+      <div className="relative py-3 flex items-center justify-between gap-1 text-center select-none w-full">
         {/* Node 1: Agent */}
-        <div className="flex flex-col items-center gap-1.5 z-10 min-w-[70px]">
-          <div className="w-10 h-10 rounded-xl border border-line bg-raised flex items-center justify-center text-accent shadow-sm">
-            <Bot className="w-5 h-5" />
+        <div className="flex-1 min-w-0 max-w-[72px] flex flex-col items-center gap-1 z-10">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-line bg-raised flex items-center justify-center text-accent shadow-sm">
+            <Bot className="w-4 h-4" />
           </div>
-          <span className="text-[11px] font-medium text-ink">Agent</span>
-          <span className="text-[9px] text-muted">Untrusted</span>
+          <span className="text-[10px] sm:text-[11px] font-medium text-ink truncate w-full">Agent</span>
+          <span className="text-[9px] text-muted truncate w-full">Untrusted</span>
         </div>
 
         {/* Connector 1 */}
-        <div className="flex-1 h-0.5 bg-line relative flex items-center justify-center">
+        <div className="flex-1 min-w-[6px] h-0.5 bg-line relative flex items-center justify-center">
           <div className="absolute inset-0 bg-accent/50 animate-pulse" />
         </div>
 
         {/* Node 2: Policy Gate */}
-        <div className="flex flex-col items-center gap-1.5 z-10 min-w-[80px]">
+        <div className="flex-1 min-w-0 max-w-[72px] flex flex-col items-center gap-1 z-10">
           <div
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center shadow-sm transition-colors duration-300 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center shadow-sm transition-colors duration-300 ${
               isBlock
                 ? 'border-block bg-block-bg text-block ring-2 ring-block/40'
                 : isAsk
@@ -55,85 +55,85 @@ export const PipelineFlow: React.FC = () => {
                 : 'border-line bg-raised text-accent'
             }`}
           >
-            <Shield className="w-5 h-5" />
+            <Shield className="w-4 h-4" />
           </div>
-          <span className="text-[11px] font-semibold text-ink">Policy Gate</span>
-          <span className={`text-[9px] font-mono ${isBlock ? 'text-block font-bold' : isAsk ? 'text-ask font-bold' : 'text-muted'}`}>
-            {isBlock ? 'BLOCKED' : isAsk ? 'PENDING' : 'Host Control'}
+          <span className="text-[10px] sm:text-[11px] font-semibold text-ink truncate w-full">Policy Gate</span>
+          <span className={`text-[9px] font-mono truncate w-full ${isBlock ? 'text-block font-bold' : isAsk ? 'text-ask font-bold' : 'text-muted'}`}>
+            {isBlock ? 'BLOCK' : isAsk ? 'ASK' : 'Control'}
           </span>
         </div>
 
         {/* Connector 2 */}
-        <div className="flex-1 h-0.5 bg-line relative flex items-center justify-center">
+        <div className="flex-1 min-w-[6px] h-0.5 bg-line relative flex items-center justify-center">
           {isAllow && <div className="absolute inset-0 bg-allow/60 animate-pulse" />}
           {isBlock && <div className="absolute inset-0 bg-block/30" />}
         </div>
 
         {/* Node 3: Isolated Sandbox */}
-        <div className="flex flex-col items-center gap-1.5 z-10 min-w-[80px]">
+        <div className="flex-1 min-w-0 max-w-[72px] flex flex-col items-center gap-1 z-10">
           <div
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center shadow-sm transition-colors duration-300 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center shadow-sm transition-colors duration-300 ${
               isAllow ? 'border-allow/50 bg-allow-bg/40 text-allow' : 'border-line bg-raised/50 text-muted opacity-60'
             }`}
           >
-            <Box className="w-5 h-5" />
+            <Box className="w-4 h-4" />
           </div>
-          <span className="text-[11px] font-medium text-ink">Sandbox</span>
-          <span className="text-[9px] text-muted truncate max-w-[90px]" title={workspace?.name || '/workspace'}>
-            {workspace?.name || '/workspace'}
+          <span className="text-[10px] sm:text-[11px] font-medium text-ink truncate w-full">Sandbox</span>
+          <span className="text-[9px] text-muted truncate w-full" title={workspace?.name || '/workspace'}>
+            {workspace?.name || 'Isolated'}
           </span>
         </div>
 
         {/* Connector 3 */}
-        <div className="flex-1 h-0.5 bg-line relative flex items-center justify-center">
+        <div className="flex-1 min-w-[6px] h-0.5 bg-line relative flex items-center justify-center">
           {isAllow && <div className="absolute inset-0 bg-allow/60 animate-pulse" />}
         </div>
 
         {/* Node 4: Squid Proxy */}
-        <div className="flex flex-col items-center gap-1.5 z-10 min-w-[80px]">
+        <div className="flex-1 min-w-0 max-w-[72px] flex flex-col items-center gap-1 z-10">
           <div
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center shadow-sm transition-colors duration-300 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center shadow-sm transition-colors duration-300 ${
               isAllow && latestLog?.tool === 'http'
                 ? 'border-allow/50 bg-allow-bg/40 text-allow'
                 : 'border-line bg-raised/50 text-muted opacity-60'
             }`}
           >
-            <Network className="w-5 h-5" />
+            <Network className="w-4 h-4" />
           </div>
-          <span className="text-[11px] font-medium text-ink">Egress Proxy</span>
-          <span className="text-[9px] text-muted">Allowlist</span>
+          <span className="text-[10px] sm:text-[11px] font-medium text-ink truncate w-full">Proxy</span>
+          <span className="text-[9px] text-muted truncate w-full">Allowlist</span>
         </div>
 
         {/* Connector 4 */}
-        <div className="flex-1 h-0.5 bg-line relative flex items-center justify-center">
+        <div className="flex-1 min-w-[6px] h-0.5 bg-line relative flex items-center justify-center">
           {isAllow && latestLog?.tool === 'http' && <div className="absolute inset-0 bg-allow/60 animate-pulse" />}
         </div>
 
         {/* Node 5: Internet */}
-        <div className="flex flex-col items-center gap-1.5 z-10 min-w-[70px]">
+        <div className="flex-1 min-w-0 max-w-[72px] flex flex-col items-center gap-1 z-10">
           <div
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center shadow-sm transition-colors duration-300 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg border flex items-center justify-center shadow-sm transition-colors duration-300 ${
               isAllow && latestLog?.tool === 'http'
                 ? 'border-allow bg-allow-bg text-allow'
                 : 'border-line bg-raised/50 text-muted opacity-50'
             }`}
           >
-            <Globe className="w-5 h-5" />
+            <Globe className="w-4 h-4" />
           </div>
-          <span className="text-[11px] font-medium text-ink">External</span>
-          <span className="text-[9px] text-muted">Target Web</span>
+          <span className="text-[10px] sm:text-[11px] font-medium text-ink truncate w-full">External</span>
+          <span className="text-[9px] text-muted truncate w-full">Target</span>
         </div>
       </div>
 
       {/* Auxiliary ledger branches */}
-      <div className="mt-2 pt-2 border-t border-line flex items-center justify-around text-xs text-muted">
-        <div className="flex items-center gap-1.5 font-mono text-[11px]">
-          <Shield className="w-3.5 h-3.5 text-accent" />
-          <span>ML Prompt Guard: Active (3-Tier)</span>
+      <div className="mt-2 pt-2 border-t border-line flex flex-wrap items-center justify-between gap-1 text-xs text-muted">
+        <div className="flex items-center gap-1 font-mono text-[10px] truncate">
+          <Shield className="w-3 h-3 text-accent shrink-0" />
+          <span className="truncate">ML Prompt Guard: Active</span>
         </div>
-        <div className="flex items-center gap-1.5 font-mono text-[11px]">
-          <Database className="w-3.5 h-3.5 text-accent" />
-          <span>SHA-256 HMAC Ledger: Intact</span>
+        <div className="flex items-center gap-1 font-mono text-[10px] truncate">
+          <Database className="w-3 h-3 text-accent shrink-0" />
+          <span className="truncate">SHA-256 HMAC Ledger</span>
         </div>
       </div>
     </div>

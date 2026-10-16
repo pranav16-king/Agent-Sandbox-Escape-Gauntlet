@@ -21,18 +21,18 @@ export const Dashboard: React.FC = () => {
       </section>
 
       {/* Row 2: Live Agent Activity (col 5) | Pipeline Flow (col 4) | System Status + Chain Card (col 3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch min-h-[450px]">
-        <div className="lg:col-span-5 h-[450px]">
-          <AgentFeed maxHeight="h-[370px]" />
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+        <div className="lg:col-span-5 min-h-[380px] flex flex-col">
+          <AgentFeed maxHeight="h-[310px]" />
         </div>
-        <div className="lg:col-span-4 h-[450px]">
+        <div className="lg:col-span-4 min-h-[380px] flex flex-col">
           <PipelineFlow />
         </div>
-        <div className="lg:col-span-3 flex flex-col gap-3 h-[450px]">
-          <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="lg:col-span-3 flex flex-col gap-3 min-h-[380px]">
+          <div className="flex-1 min-h-0">
             <SystemStatus />
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0">
             <ChainCard />
           </div>
         </div>
@@ -40,38 +40,38 @@ export const Dashboard: React.FC = () => {
 
       {/* Row 3: Tool Call Timeline (col 8) | Attack vs Normal (col 4) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        <div className="lg:col-span-8 h-[240px]">
+        <div className="lg:col-span-8 min-h-[260px] flex flex-col">
           <TimelineChart />
         </div>
-        <div className="lg:col-span-4 h-[240px]">
+        <div className="lg:col-span-4 min-h-[260px] flex flex-col">
           <AttackDonut />
         </div>
       </section>
 
       {/* Row 4: Live Logs Table (col 8) | Ask Queue + Network Activity (col 4) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        <div className="lg:col-span-8 h-[380px]">
+        <div className="lg:col-span-8 min-h-[380px] flex flex-col">
           <LogTable maxHeight="h-[290px]" />
         </div>
-        <div className="lg:col-span-4 flex flex-col gap-4 h-[380px]">
+        <div className="lg:col-span-4 flex flex-col gap-4 min-h-[380px]">
           <div className="flex-1 min-h-0">
             <AskQueue />
           </div>
           <div className="flex-1 min-h-0">
-            <NetworkTable maxHeight="max-h-[110px]" />
+            <NetworkTable maxHeight="max-h-[120px]" />
           </div>
         </div>
       </section>
 
       {/* Row 5: Attack Scenarios (col 4) | Normal Tasks (col 4) | Container Resources (col 4) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        <div className="lg:col-span-4 h-[340px]">
+        <div className="lg:col-span-4 min-h-[340px] flex flex-col">
           <ScenarioList kind="attack" maxHeight="max-h-[240px]" />
         </div>
-        <div className="lg:col-span-4 h-[340px]">
+        <div className="lg:col-span-4 min-h-[340px] flex flex-col">
           <ScenarioList kind="normal" maxHeight="max-h-[240px]" />
         </div>
-        <div className="lg:col-span-4 h-[340px]">
+        <div className="lg:col-span-4 min-h-[340px] flex flex-col">
           <ResourceGauges />
         </div>
       </section>

@@ -69,12 +69,12 @@ export const ChainCard: React.FC = () => {
 
   return (
     <div
-      className={`rounded-card border p-3.5 flex flex-col justify-between h-full overflow-hidden transition-colors ${
+      className={`rounded-card border p-3 sm:p-3.5 flex flex-col justify-between h-full transition-colors ${
         chain.ok ? 'border-line bg-surface' : 'border-block/80 bg-block-bg/25 shadow-sm shadow-block/10'
       }`}
     >
-      <div className="overflow-y-auto pr-0.5 space-y-2">
-        <div className="flex items-center justify-between pb-2 border-b border-line mb-2">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between pb-1.5 border-b border-line mb-2">
           <div className="flex items-center gap-1.5">
             <Link className="w-3.5 h-3.5 text-accent shrink-0" />
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted truncate">
@@ -106,7 +106,7 @@ export const ChainCard: React.FC = () => {
           </div>
         )}
 
-        <div className="space-y-1.5 text-[11px]">
+        <div className="space-y-1 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-muted text-[10px]">Ledger Head:</span>
             <HashChip hash={chain.head_hash} truncateLength={6} />
@@ -126,15 +126,15 @@ export const ChainCard: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-2.5 pt-2 border-t border-line flex items-center justify-between gap-1.5">
+      <div className="mt-2 pt-2 border-t border-line flex items-center justify-between gap-1.5">
         <button
           type="button"
           onClick={handleVerify}
           disabled={verifying}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-md border border-line bg-raised hover:bg-surface text-ink text-[11px] font-medium transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-lg border border-line bg-raised hover:bg-surface text-ink text-xs font-medium transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`w-3 h-3 ${verifying ? 'animate-spin text-accent' : ''}`} />
-          <span>{verifying ? 'Verifying...' : 'Verify Ledger'}</span>
+          <span>{verifying ? 'Verifying...' : 'Verify'}</span>
         </button>
 
         {chain.ok ? (
@@ -143,7 +143,7 @@ export const ChainCard: React.FC = () => {
             onClick={handleTamperTest}
             disabled={tampering}
             title="Inject simulated modification to test tamper detection"
-            className="text-[10px] font-mono px-2 py-1 rounded-md border border-line hover:border-block text-muted hover:text-block transition-colors"
+            className="text-[10px] font-mono px-2 py-1 rounded-lg border border-line hover:border-block text-muted hover:text-block transition-colors shrink-0"
           >
             {tampering ? 'Tampering...' : 'Simulate Tamper'}
           </button>

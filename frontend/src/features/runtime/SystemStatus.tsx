@@ -30,21 +30,30 @@ export const SystemStatus: React.FC = () => {
         <div className="grid grid-cols-2 gap-1.5 text-xs">
           {Object.entries(system.components).map(([name, status]) => {
             const isHealthy = ['running', 'active', 'logging', 'connected'].includes(status);
+            const shortName = name
+              .replace('Host ', '')
+              .replace(' Engine', '')
+              .replace(' Proxy', '')
+              .replace(' DNS', '')
+              .replace('Audit ', '')
+              .replace('Docker ', '');
+
             return (
               <div
                 key={name}
-                className="py-1 px-2 rounded-md border border-line/60 bg-raised/30 flex items-center justify-between"
+                title={`${name}: ${status}`}
+                className="px-2 py-1.5 rounded-lg border border-line/60 bg-raised/30 flex items-center justify-between gap-1 min-w-0"
               >
-                <span className="text-ink text-[10px] font-medium truncate mr-1">{name}</span>
-                <span className="flex items-center gap-1 shrink-0 font-mono text-[9px] capitalize">
+                <span className="text-ink text-[11px] font-medium truncate">{shortName}</span>
+                <span className="flex items-center gap-1 shrink-0 font-mono text-[10px] capitalize">
                   {isHealthy ? (
                     <>
-                      <CheckCircle2 className="w-3 h-3 text-allow" />
+                      <CheckCircle2 className="w-2.5 h-2.5 text-allow" />
                       <span className="text-allow">{status}</span>
                     </>
                   ) : (
                     <>
-                      <AlertCircle className="w-3 h-3 text-block" />
+                      <AlertCircle className="w-2.5 h-2.5 text-block" />
                       <span className="text-block">{status}</span>
                     </>
                   )}
@@ -57,8 +66,8 @@ export const SystemStatus: React.FC = () => {
 
       <div className="mt-2.5 pt-2 border-t border-line flex items-center justify-between text-[10px] font-mono text-muted">
         <span>Security Mode:</span>
-        <span className={`font-bold uppercase tracking-wider ${system.sandbox === 'on' ? 'text-allow' : 'text-block'}`}>
-          {system.sandbox === 'on' ? 'HARDENED ENFORCEMENT' : 'UNSAFE (SANDBOX OFF)'}
+        <span className={`font-bold uppercase ${system.sandbox === 'on' ? 'text-allow' : 'text-block'}`}>
+          {system.sandbox === 'on' ? 'HARDENED' : 'UNSAFE (OFF)'}
         </span>
       </div>
     </div>
