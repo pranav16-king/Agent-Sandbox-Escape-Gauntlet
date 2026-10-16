@@ -1,25 +1,49 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, User, ArrowDown, Maximize2, Minimize2 } from 'lucide-react';
+import { Bot, User, ArrowDown } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
 
 export interface AgentFeedProps {
   maxHeight?: string;
   allowExpand?: boolean;
+  defaultHeight?: 'normal' | 'medium' | 'tall';
 }
 
 export const AgentFeed: React.FC<AgentFeedProps> = ({
   maxHeight,
   allowExpand = true,
+  defaultHeight = 'medium',
 }) => {
   const agentMessages = useLiveStore((s) => s.agentMessages);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [heightMode, setHeightMode] = useState<'normal' | 'medium' | 'tall'>(() => {
+    try {
+      const saved = localStorage.getItem('sandboxx_feed_height') as 'normal' | 'medium' | 'tall';
+      if (saved && ['normal', 'medium', 'tall'].includes(saved)) return saved;
+    } catch {}
+    return defaultHeight;
+  });
 
-  // Auto-scroll logic
+  const handleSetHeightMode = (mode: 'normal' | 'medium' | 'tall') => {
+    setHeightMode(mode);
+    try {
+      localStorage.setItem('sandboxx_feed_height', mode);
+    } catch {}
+  };
+
+  const heightClass = maxHeight || {
+    normal: 'min-h-[380px] h-[380px]',
+    medium: 'min-h-[500px] h-[500px]',
+    tall: 'min-h-[680px] h-[680px]',
+  }[heightMode];
+
+  // Auto-scroll logic with smooth behavior
   useEffect(() => {
     if (!isScrolledUp && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   }, [agentMessages, isScrolledUp]);
 
@@ -32,18 +56,19 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
 
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
       setIsScrolledUp(false);
     }
   };
 
   return (
     <div
-      className={`relative flex flex-col h-full rounded-card border border-line bg-surface overflow-hidden transition-all duration-200 card-hover ${
-        isExpanded ? 'min-h-[640px]' : ''
-      }`}
+      className={`relative flex flex-col rounded-card border border-line bg-surface overflow-hidden transition-all duration-200 card-hover ${heightClass}`}
     >
-      <div className="p-3 border-b border-line flex items-center justify-between bg-raised/30">
+      <div className="p-3 border-b border-line flex items-center justify-between bg-raised/30 shrink-0">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-allow animate-pulse" />
           <Bot className="w-4 h-4 text-accent" />
@@ -55,22 +80,28 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised border border-line/60 text-muted">
             Qwen3 4B
           </span>
-          <span className="text-[11px] font-mono text-muted">
-            {agentMessages.length} events
+          <span className="text-[11px] font-mono text-muted hidden sm:inline">
+            {agentMessages.length} events logged
           </span>
+
           {allowExpand && (
-            <button
-              type="button"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1 rounded hover:bg-raised text-muted hover:text-ink transition-colors border border-transparent hover:border-line"
-              title={isExpanded ? 'Restore default height' : 'Expand stream height (640px)'}
-            >
-              {isExpanded ? (
-                <Minimize2 className="w-3.5 h-3.5 text-accent" />
-              ) : (
-                <Maximize2 className="w-3.5 h-3.5" />
-              )}
-            </button>
+            <div className="flex items-center gap-1 bg-raised/70 p-0.5 rounded-lg border border-line/60">
+              {(['normal', 'medium', 'tall'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => handleSetHeightMode(m)}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                    heightMode === m
+                      ? 'bg-accent text-on-accent font-bold shadow-xs'
+                      : 'text-muted hover:text-ink'
+                  }`}
+                  title={`Set section height to ${m === 'normal' ? '380px' : m === 'medium' ? '500px' : '680px'}`}
+                >
+                  {m === 'normal' ? '380px' : m === 'medium' ? '500px' : '680px'}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -78,7 +109,7 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-1 min-h-0 p-3.5 space-y-3 overflow-y-auto text-xs leading-relaxed ${maxHeight || ''}`}
+        className="flex-1 min-h-0 p-3.5 space-y-3 overflow-y-auto text-xs leading-relaxed"
       >
         {agentMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-muted text-xs p-6 text-center">
@@ -131,6 +162,8 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
             );
           })
         )}
+        {/* Dedicated buffer so the final message is never clipped at the bottom after scrolling */}
+        <div className="h-6 shrink-0" aria-hidden="true" />
       </div>
 
       {/* Jump to latest button */}

@@ -139,6 +139,11 @@ class TaintTracker:
             session.taint_reasons.append(f"Session taint: {reason}")
             self._persist(session)
 
+    def taint_session(self, session_id: str, reason: str, audit_id: Optional[int] = None):
+        """Taints a session with an explicit reason and optional audit record ID."""
+        audit_note = f" [audit_id: {audit_id}]" if audit_id else ""
+        self.mark_tainted(session_id, f"{reason}{audit_note}")
+
     def is_session_tainted(self, session_id: str) -> bool:
         session = self.get_or_create(session_id)
         return session.is_tainted
