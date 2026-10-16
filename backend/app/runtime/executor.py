@@ -8,6 +8,7 @@ import httpx
 
 from ..config import settings
 from ..models import ToolResult
+from ..workspace import workspace_manager
 
 class SandboxExecutor:
     def __init__(self):
@@ -58,17 +59,20 @@ class SandboxExecutor:
         raw_path = args.get("path", "")
         content = args.get("content", "")
 
-        # Map path inside workspace
-        rel_path = raw_path.replace("/workspace", "").lstrip("/").lstrip("\\")
-        target_path = (workspace / rel_path).resolve()
+        # First attempt resolution within the active project workspace
+        target_path = workspace_manager.resolve_workspace_file(raw_path)
 
-        # Hard containment check: resolve realpath must be inside workspace
-        try:
-            target_path.relative_to(workspace.resolve())
-        except ValueError:
-            return ToolResult(
-                error=f"Kernel boundary violation: Resolved path '{target_path}' escapes workspace mount."
-            )
+        # If not matched against active project workspace, try session workspace fallback
+        if target_path is None:
+            rel_path = raw_path.replace("/workspace", "").lstrip("/").lstrip("\\")
+            candidate = (workspace / rel_path).resolve()
+            try:
+                candidate.relative_to(workspace.resolve())
+                target_path = candidate
+            except ValueError:
+                return ToolResult(
+                    error=f"Kernel boundary violation: Resolved path '{raw_path}' escapes active project workspace mount ({workspace_manager.current_path.name})."
+                )
 
         try:
             if op == "read":
@@ -98,12 +102,14 @@ class SandboxExecutor:
         cmd = args.get("cmd", "")
         timeout = args.get("timeout", settings.DEFAULT_TIMEOUT_SEC)
 
+        # Execute subprocess strictly within active project workspace directory
+        exec_dir = workspace_manager.current_path if workspace_manager.current_path.exists() else workspace
+
         try:
-            # Execute subprocess strictly inside workspace folder
             proc = subprocess.run(
                 cmd,
                 shell=True,
-                cwd=str(workspace),
+                cwd=str(exec_dir),
                 capture_output=True,
                 text=True,
                 timeout=timeout

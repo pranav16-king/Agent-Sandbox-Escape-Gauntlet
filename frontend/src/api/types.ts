@@ -107,7 +107,31 @@ export type LiveEvent =
   | WsEnvelope<'resources', ResourceUsage>
   | WsEnvelope<'scenario', { id: string; kind: 'attack' | 'normal'; status: 'idle' | 'running' | 'blocked' | 'done' | 'failed'; outcome?: string }>
   | WsEnvelope<'chain', ChainStatus>
-  | WsEnvelope<'system', SystemStatusData>;
+  | WsEnvelope<'system', SystemStatusData>
+  | WsEnvelope<'clear_logs', Record<string, unknown>>
+  | WsEnvelope<'workspace', WorkspaceInfo>;
+
+export interface WorkspaceFileItem {
+  name: string;
+  type: 'file' | 'directory';
+  path: string;
+  size_bytes: number;
+}
+
+export interface WorkspaceInfo {
+  path: string;
+  name: string;
+  is_valid: boolean;
+  file_count: number;
+  files: WorkspaceFileItem[];
+  allowed_boundary: string;
+}
+
+export interface WorkspaceBrowseResult {
+  current_path: string;
+  parent_path?: string | null;
+  directories: Array<{ name: string; path: string }>;
+}
 
 export interface SystemSnapshot {
   counts: {
@@ -126,4 +150,5 @@ export interface SystemSnapshot {
   scenarios: ScenarioItem[];
   pending_asks: AskRequest[];
   network: NetworkEvent[];
+  workspace?: WorkspaceInfo;
 }

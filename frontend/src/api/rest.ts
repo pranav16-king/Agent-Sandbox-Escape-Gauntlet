@@ -1,4 +1,4 @@
-import { SystemSnapshot, AuditEntry, ScenarioItem, ChainStatus } from './types';
+import { SystemSnapshot, AuditEntry, ScenarioItem, ChainStatus, WorkspaceInfo, WorkspaceBrowseResult } from './types';
 
 const BASE_URL = '';
 
@@ -48,6 +48,10 @@ export const api = {
 
   tamperTest: async (): Promise<{ ok: boolean; message: string }> => {
     return fetchJson('/api/audit/tamper', { method: 'POST' });
+  },
+
+  clearAuditLogs: async (): Promise<{ ok: boolean; message: string }> => {
+    return fetchJson('/api/audit/clear', { method: 'POST' });
   },
 
   getScenarios: async (): Promise<ScenarioItem[]> => {
@@ -108,6 +112,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ prompt, task_id: taskId || 'live-demo' }),
     });
+  },
+
+  getWorkspace: async (): Promise<WorkspaceInfo> => {
+    return fetchJson<WorkspaceInfo>('/api/workspace');
+  },
+
+  setWorkspace: async (path: string): Promise<{ ok: boolean; workspace: WorkspaceInfo }> => {
+    return fetchJson<{ ok: boolean; workspace: WorkspaceInfo }>('/api/workspace', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
+  },
+
+  browseWorkspace: async (dirPath?: string): Promise<WorkspaceBrowseResult> => {
+    const query = dirPath ? `?dir_path=${encodeURIComponent(dirPath)}` : '';
+    return fetchJson<WorkspaceBrowseResult>(`/api/workspace/browse${query}`);
   },
 };
 

@@ -28,11 +28,11 @@ export const TopBar: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-on-accent font-bold text-sm shadow-sm">
-            AG
+            SX
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-tight text-ink leading-tight">
-              AgentGauntlet
+              sandboxX
             </h1>
             <span className="text-[10px] font-mono text-muted block -mt-0.5">
               Host Security Gateway

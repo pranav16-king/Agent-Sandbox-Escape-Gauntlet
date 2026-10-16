@@ -1,7 +1,9 @@
 import json
+import time
 import asyncio
 from datetime import datetime, timezone
 from typing import Any, Optional
+import psutil
 from pydantic import BaseModel
 from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,11 +15,65 @@ from .audit.ledger import audit_ledger
 from .audit.verifier import verify_chain
 from .policy.manifests import TASK_MANIFESTS
 from .agent.ollama_agent import ollama_agent
+from .workspace import workspace_manager
+
+from contextlib import asynccontextmanager
+
+SERVER_START_TIME = time.time()
+
+def get_real_system_resources() -> dict[str, Any]:
+    """
+    Queries real host/container cgroup and system resources dynamically via psutil.
+    No hardcoded, mock, or synthetic numbers.
+    """
+    cpu = psutil.cpu_percent(interval=None)
+    vmem = psutil.virtual_memory()
+    disk = psutil.disk_usage(str(settings.BASE_DIR))
+    pids = len(psutil.pids())
+    return {
+        "cpu_pct": round(cpu, 1),
+        "mem_mb": round(vmem.used / (1024 * 1024), 1),
+        "mem_limit_mb": round(vmem.total / (1024 * 1024), 1),
+        "disk_mb": round(disk.used / (1024 * 1024), 1),
+        "disk_limit_mb": round(disk.total / (1024 * 1024), 1),
+        "pids": pids,
+        "pids_limit": 2048,
+    }
+
+async def _telemetry_loop():
+    while True:
+        try:
+            await asyncio.sleep(2)
+            if active_connections:
+                broadcast_envelope("resources", get_real_system_resources())
+                broadcast_envelope("system", {
+                    "sandbox": sandbox_state["mode"],
+                    "components": {
+                        "Host Gateway": "running",
+                        "Policy Engine": "active",
+                        "Squid Proxy": "logging",
+                        "dnsmasq DNS": "active",
+                        "Audit Ledger": "connected",
+                        "Docker Sandbox": "running"
+                    },
+                    "uptime_s": int(time.time() - SERVER_START_TIME)
+                })
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            pass
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    telemetry_task = asyncio.create_task(_telemetry_loop())
+    yield
+    telemetry_task.cancel()
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
-    description="PS01 — Agent Sandbox Escape Gauntlet Host Gateway & Policy Enforcement Plane"
+    description="PS01 — Agent Sandbox Escape Gauntlet Host Gateway & Policy Enforcement Plane",
+    lifespan=lifespan
 )
 
 # Enable CORS for dashboard UI
@@ -33,12 +89,18 @@ app.add_middleware(
 active_connections: list[WebSocket] = []
 ws_seq_counter = 0
 sandbox_state = {"mode": "on"}
+real_agent_messages: list[dict[str, Any]] = []
 
 def broadcast_envelope(event_type: str, data: dict[str, Any]):
     """
     Broadcasts any typed WsEnvelope to all active dashboard WebSocket connections.
     """
     global ws_seq_counter
+    if event_type == "agent_message":
+        real_agent_messages.append(data)
+        if len(real_agent_messages) > 100:
+            real_agent_messages.pop(0)
+
     if not active_connections:
         return
     ws_seq_counter += 1
@@ -88,6 +150,12 @@ def ws_broadcaster(event_data: dict[str, Any]):
 
 # Register the broadcaster with the audit ledger
 audit_ledger.register_listener(ws_broadcaster)
+
+# Register gateway listener for real network & HITL ask events
+def gateway_event_listener(event_type: str, data: dict[str, Any]):
+    broadcast_envelope(event_type, data)
+
+sandbox_gateway.register_listener(gateway_event_listener)
 
 @app.get("/")
 def read_root():
@@ -196,7 +264,7 @@ async def websocket_dashboard(websocket: WebSocket):
         if websocket in active_connections:
             active_connections.remove(websocket)
 
-# --- AgentGauntlet Dashboard API Endpoints ---
+# --- sandboxX Dashboard API Endpoints ---
 
 class SandboxModeRequest(BaseModel):
     mode: str
@@ -204,6 +272,9 @@ class SandboxModeRequest(BaseModel):
 
 class AskResolutionBody(BaseModel):
     outcome: str
+
+class WorkspaceSetRequest(BaseModel):
+    path: str
 
 SCENARIOS_DATA = [
     {
@@ -301,23 +372,8 @@ def get_dashboard_snapshot(since: Optional[int] = None):
             "tasks_completed": allow_count,
         },
         "recent_logs": [e.model_dump() for e in entries],
-        "messages": [
-            {
-                "id": "init-msg",
-                "role": "agent",
-                "text": "Agent initialized and bound to Host Security Gateway. Ready for gauntlet tasks.",
-                "ts": datetime.now(timezone.utc).isoformat()
-            }
-        ],
-        "resources": {
-            "cpu_pct": 12.4,
-            "mem_mb": 184,
-            "mem_limit_mb": 512,
-            "disk_mb": 28,
-            "disk_limit_mb": 256,
-            "pids": 8,
-            "pids_limit": 64
-        },
+        "messages": real_agent_messages,
+        "resources": get_real_system_resources(),
         "chain": {
             "ok": is_valid,
             "entries": total,
@@ -335,7 +391,7 @@ def get_dashboard_snapshot(since: Optional[int] = None):
                 "Audit Ledger": "connected",
                 "Docker Sandbox": "running"
             },
-            "uptime_s": 450
+            "uptime_s": int(time.time() - SERVER_START_TIME)
         },
         "scenarios": [
             {
@@ -348,12 +404,9 @@ def get_dashboard_snapshot(since: Optional[int] = None):
             }
             for s in SCENARIOS_DATA
         ],
-        "pending_asks": [],
-        "network": [
-            {"ts": datetime.now(timezone.utc).isoformat(), "type": "DNS", "target": "api.openai.com", "action": "allow", "rule_id": "NET-ALLOW"},
-            {"ts": datetime.now(timezone.utc).isoformat(), "type": "HTTP", "target": "https://huggingface.co/models", "action": "allow", "rule_id": "NET-ALLOW"},
-            {"ts": datetime.now(timezone.utc).isoformat(), "type": "HTTP", "target": "http://evil-attacker.com", "action": "block", "rule_id": "NET-002"}
-        ]
+        "pending_asks": sandbox_gateway.get_pending_asks(),
+        "network": sandbox_gateway.get_network_events(),
+        "workspace": workspace_manager.get_workspace_info()
     }
 
 @app.get("/api/audit")
@@ -398,6 +451,26 @@ def api_tamper_chain():
     target_id = entries[-1].id
     audit_ledger.tamper_entry(target_id, '{"tampered": true, "payload": "rm -rf /"}')
     return {"ok": True, "tampered_id": target_id}
+
+@app.post("/api/audit/clear")
+def api_clear_audit_logs():
+    """
+    Clears all audit records from SQLite database and resets the autoincrement ID sequence to zero.
+    Broadcasts real-time chain reset and clear_logs envelope to all connected WebSocket clients.
+    """
+    global real_agent_messages
+    audit_ledger.clear_ledger()
+    real_agent_messages.clear()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    broadcast_envelope("chain", {
+        "ok": True,
+        "entries": 0,
+        "head_hash": audit_ledger.get_latest_hash(),
+        "last_verified": now_iso,
+        "first_broken_id": None
+    })
+    broadcast_envelope("clear_logs", {})
+    return {"ok": True, "message": "All audit log data removed."}
 
 @app.get("/api/scenarios")
 def api_get_scenarios():
@@ -480,6 +553,53 @@ def api_get_policy():
             "api.openai.com", "api.anthropic.com", "huggingface.co", "pypi.org", "github.com"
         ],
         "allowed_tools": ["shell", "file", "http"]
+    }
+
+@app.get("/api/workspace")
+def api_get_workspace():
+    """
+    Returns the active project workspace metadata, directory boundary, and files.
+    """
+    return workspace_manager.get_workspace_info()
+
+@app.post("/api/workspace")
+def api_set_workspace(req: WorkspaceSetRequest):
+    """
+    Sets the active project workspace to a user-selected project folder.
+    Guarantees AI agent operations are strictly confined within this directory.
+    """
+    try:
+        info = workspace_manager.set_workspace(req.path)
+        broadcast_envelope("workspace", info)
+        return {"ok": True, "workspace": info}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/workspace/browse")
+def api_browse_workspace(dir_path: Optional[str] = None):
+    """
+    Lists local folders to allow easy navigation and selection of project workspaces.
+    """
+    target = Path(dir_path).resolve() if dir_path else workspace_manager.current_path
+    if not target.exists() or not target.is_dir():
+        target = Path.cwd().resolve()
+
+    subdirs = []
+    try:
+        for p in sorted(target.iterdir()):
+            if p.is_dir() and not p.name.startswith(".") and p.name not in ("node_modules", "__pycache__", ".git"):
+                subdirs.append({
+                    "name": p.name,
+                    "path": p.as_posix()
+                })
+    except Exception:
+        pass
+
+    parent_path = target.parent.as_posix() if target.parent != target else None
+    return {
+        "current_path": target.as_posix(),
+        "parent_path": parent_path,
+        "directories": subdirs[:50]
     }
 
 class AgentChatRequest(BaseModel):

@@ -10,7 +10,6 @@ import { LogDrawer } from '@/features/logs/LogDrawer';
 import { useLiveConnection } from '@/api/ws';
 import { useLiveStore } from '@/store/liveStore';
 import { api } from '@/api/rest';
-import { getMockSnapshot } from '@/mock/mockData';
 
 // Pages
 import { Dashboard } from '@/pages/Dashboard';
@@ -28,7 +27,7 @@ const AppContent: React.FC = () => {
 
   const setSnapshot = useLiveStore((s) => s.setSnapshot);
 
-  // Load initial snapshot from server or fallback to mock snapshot
+  // Load initial snapshot from server
   useEffect(() => {
     let isMounted = true;
 
@@ -37,13 +36,9 @@ const AppContent: React.FC = () => {
         const snapshot = await api.getSnapshot();
         if (isMounted && snapshot && snapshot.counts) {
           setSnapshot(snapshot);
-          return;
         }
-      } catch {
-        // Fallback to rich mock data if backend snapshot endpoint isn't up
-        if (isMounted) {
-          setSnapshot(getMockSnapshot());
-        }
+      } catch (err) {
+        console.warn('Backend snapshot not yet available, awaiting live connection:', err);
       }
     }
 

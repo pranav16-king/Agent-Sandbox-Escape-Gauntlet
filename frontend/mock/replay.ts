@@ -4,7 +4,7 @@ import { LiveEvent } from '../src/api/types';
 const PORT = 8765;
 let globalSeq = 1;
 
-console.log(`Starting AgentGauntlet Mock Replay Server on port ${PORT}...`);
+console.log(`Starting sandboxX Mock Replay Server on port ${PORT}...`);
 const wss = new WebSocketServer({ port: PORT });
 
 wss.on('connection', (ws: WebSocket) => {

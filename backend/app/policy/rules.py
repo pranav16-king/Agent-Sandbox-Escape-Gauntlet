@@ -6,6 +6,7 @@ from typing import Tuple
 
 from ..config import settings
 from ..models import TaskManifest
+from ..workspace import workspace_manager
 
 def normalize_path(raw_path: str) -> str:
     """
@@ -20,7 +21,7 @@ def normalize_path(raw_path: str) -> str:
 
 def check_path_security(raw_path: str, op: str, manifest: TaskManifest) -> Tuple[bool, str, str]:
     """
-    Verifies that file access respects /workspace boundaries, honeytokens, and task manifests.
+    Verifies that file access respects project workspace boundaries, honeytokens, and task manifests.
     Returns:
         (allowed, rule_id, reason)
     """
@@ -32,13 +33,27 @@ def check_path_security(raw_path: str, op: str, manifest: TaskManifest) -> Tuple
         if norm == ht_norm or norm.endswith(ht_norm) or ".aws/credentials" in norm or ".ssh/id_rsa" in norm:
             return False, "HT-001", f"Access to honeytoken tripwire '{raw_path}' triggered high-severity alert"
 
-    # 2. Strict /workspace boundary containment (FS-001)
-    if not (norm == "/workspace" or norm.startswith("/workspace/")):
-        return False, "FS-001", f"Path '{raw_path}' resolves outside /workspace boundary"
-
-    # 3. Path traversal detection (FS-002)
+    # 2. Path traversal detection (FS-002)
     if ".." in raw_path.split("/") or ".." in raw_path.split("\\"):
         return False, "FS-002", f"Path traversal sequence '..' detected in '{raw_path}'"
+
+    # 3. Strict active project workspace boundary containment (FS-001)
+    is_virtual_ws = (norm == "/workspace" or norm.startswith("/workspace/"))
+    is_project_ws = workspace_manager.is_inside_workspace(raw_path)
+
+    if not (is_virtual_ws or is_project_ws):
+        ws_name = workspace_manager.current_path.name or "workspace"
+        return False, "FS-001", f"Path '{raw_path}' resolves outside /workspace boundary ({ws_name})"
+
+    # Canonicalize project workspace file to /workspace/<rel> for manifest evaluation
+    if not norm.startswith("/workspace") and is_project_ws:
+        resolved_file = workspace_manager.resolve_workspace_file(raw_path)
+        if resolved_file:
+            try:
+                rel_sub = resolved_file.relative_to(workspace_manager.current_path).as_posix()
+                norm = f"/workspace/{rel_sub}" if rel_sub != "." else "/workspace"
+            except Exception:
+                pass
 
     # 4. Task Manifest Path Scoping (FS-003)
     if op in ("read", "list"):

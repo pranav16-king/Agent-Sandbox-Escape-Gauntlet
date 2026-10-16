@@ -56,3 +56,15 @@ def test_api_policy(client):
     assert "rules" in data
     assert "egress_domains" in data
     assert "api.openai.com" in data["egress_domains"]
+
+def test_api_audit_clear(client):
+    response = client.post("/api/audit/clear")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
+
+    # Verify snapshot shows 0 logs and 0 entries in chain
+    snapshot = client.get("/api/snapshot").json()
+    assert snapshot["counts"]["total"] == 0
+    assert len(snapshot["recent_logs"]) == 0
+    assert snapshot["chain"]["entries"] == 0

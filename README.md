@@ -1,4 +1,4 @@
-# 🛡️ AgentGauntlet (PS01) — AI Agent Sandbox Escape Gauntlet
+# 🛡️ sandboxX (PS01) — AI Agent Sandbox Escape Gauntlet
 
 [![Track](https://img.shields.io/badge/Track-Open%20Weight%20AI%20%26%20Open%20Source%20Tools-blue.svg)](docs/problem_statement.md)
 [![Challenge](https://img.shields.io/badge/Challenge-PS01%20Agent%20Sandbox%20Escape%20Gauntlet-red.svg)](docs/problem_statement.md)
@@ -43,7 +43,7 @@ Autonomous coding and workflow agents execute arbitrary bash commands, manipulat
 
 Traditional approaches rely on system prompt warnings or probabilistic safety classifiers. Once bypassed, the attacker achieves total host compromise, lateral movement, or data exfiltration.
 
-**AgentGauntlet (PS01)** delivers an end-to-end, agent-agnostic security architecture:
+**sandboxX (PS01)** delivers an end-to-end, agent-agnostic security architecture:
 1. **Host Control Plane**: Intercepts every tool call before execution via an authenticated gateway.
 2. **Hardened Container Runtime**: Confined to `/workspace` with read-only rootfs, dropped capabilities, and cgroup resource limits.
 3. **Zero-Trust Egress Filtering**: Squid proxy and dnsmasq enforce strict domain allowlists and block covert DNS tunneling.
@@ -55,7 +55,7 @@ Traditional approaches rely on system prompt warnings or probabilistic safety cl
 
 ## ⚠️ Why Existing Solutions Fail
 
-| Defense Class | Implementation | Primary Failure Mode | How AgentGauntlet Solves It |
+| Defense Class | Implementation | Primary Failure Mode | How sandboxX Solves It |
 |---|---|---|---|
 | **System Prompts / Delimiters** | "Never access credentials" or `<<<untrusted>>>` | LLMs cannot separate data from instructions; subsequent persuasive tokens override earlier instructions. | **Enforcement Outside the Model**: Host gateway and kernel enforce hard restrictions regardless of agent state. |
 | **Output / Injection Classifiers** | Prompt Guard, Llama Guard as pass/fail filters | High false-negative rate on obfuscated, multilingual, or multi-turn attacks. | **Asymmetric Signal**: Prompt Guard 2 (86M) acts only to escalate strictness—it can never grant access. |
@@ -142,7 +142,7 @@ flowchart TD
 
     subgraph Zone8["Zone 8: Audit & Telemetry"]
         Ledger[("Tamper-Evident Ledger\nSHA-256 Hash Chain (SQLite)")]
-        Dashboard["AgentGauntlet Dashboard\n(React 18 + TSX + Tailwind)"]
+        Dashboard["sandboxX Dashboard\n(React 18 + TSX + Tailwind)"]
     end
 
     subgraph Zone4["Zone 4: Hardened Runtime"]
@@ -232,7 +232,7 @@ $$\text{Hash}_n = \text{HMAC-SHA256}(\text{Hash}_{n-1} \parallel \text{Timestamp
 
 The dashboard provides real-time security observability and evaluation control:
 
-![AgentGauntlet Dashboard Mockup](docs/assets/dashboard_preview.jpg)
+![sandboxX Dashboard Mockup](docs/assets/dashboard_preview.jpg)
 
 ### Features & Capabilities
 - **6 Key Performance Indicators (KPIs)**: Total tool invocations, Allowed actions, Blocked exploits, Human clearances, Neutralized attacks, and Completed tasks.

@@ -10,6 +10,7 @@ import {
   SystemStatusData,
   SystemSnapshot,
   LiveEvent,
+  WorkspaceInfo,
 } from '@/api/types';
 
 const MAX_AUDIT_LOGS = 2000;
@@ -42,6 +43,7 @@ export interface LiveState {
   chain: ChainStatus;
   system: SystemStatusData;
   scenarios: ScenarioItem[];
+  workspace: WorkspaceInfo;
   connectionStatus: 'connected' | 'reconnecting' | 'offline';
   retryCount: number;
   lastSeq: number;
@@ -55,6 +57,8 @@ export interface LiveState {
   setSandboxMode: (mode: 'on' | 'off') => void;
   updateChainStatus: (chain: ChainStatus) => void;
   updateScenarioStatus: (id: string, status: ScenarioItem['status'], outcome?: string) => void;
+  setWorkspaceInfo: (workspace: WorkspaceInfo) => void;
+  clearLogs: () => void;
 }
 
 export const useLiveStore = create<LiveState>((set) => ({
@@ -72,13 +76,13 @@ export const useLiveStore = create<LiveState>((set) => ({
   pendingAsks: [],
   networkEvents: [],
   resources: {
-    cpu_pct: 12.4,
-    mem_mb: 184,
-    mem_limit_mb: 512,
-    disk_mb: 28,
-    disk_limit_mb: 256,
-    pids: 8,
-    pids_limit: 64,
+    cpu_pct: 0,
+    mem_mb: 0,
+    mem_limit_mb: 0,
+    disk_mb: 0,
+    disk_limit_mb: 0,
+    pids: 0,
+    pids_limit: 0,
   },
   chain: {
     ok: true,
@@ -96,9 +100,17 @@ export const useLiveStore = create<LiveState>((set) => ({
       'Audit Ledger': 'connected',
       'Docker Sandbox': 'running',
     },
-    uptime_s: 342,
+    uptime_s: 0,
   },
   scenarios: [],
+  workspace: {
+    path: '/workspace',
+    name: 'workspace',
+    is_valid: true,
+    file_count: 0,
+    files: [],
+    allowed_boundary: '/workspace',
+  },
   connectionStatus: 'offline',
   retryCount: 0,
   lastSeq: 0,
@@ -119,6 +131,7 @@ export const useLiveStore = create<LiveState>((set) => ({
       chain: snapshot.chain,
       system: snapshot.system,
       scenarios: snapshot.scenarios,
+      ...(snapshot.workspace ? { workspace: snapshot.workspace } : {}),
     });
   },
 
@@ -254,6 +267,37 @@ export const useLiveStore = create<LiveState>((set) => ({
           };
         }
 
+        case 'clear_logs': {
+          return {
+            lastSeq: nextSeq,
+            counts: {
+              total: 0,
+              allow: 0,
+              block: 0,
+              ask: 0,
+              attacks_blocked: 0,
+              tasks_completed: 0,
+            },
+            auditLogs: [],
+            timelinePoints: [],
+            agentMessages: [],
+            pendingAsks: [],
+            chain: {
+              ok: true,
+              entries: 0,
+              head_hash: '0'.repeat(64),
+              last_verified: new Date().toISOString(),
+            },
+          };
+        }
+
+        case 'workspace': {
+          return {
+            lastSeq: nextSeq,
+            workspace: event.data as WorkspaceInfo,
+          };
+        }
+
         default:
           return { lastSeq: nextSeq };
       }
@@ -271,6 +315,31 @@ export const useLiveStore = create<LiveState>((set) => ({
     }));
   },
 
+  clearLogs: () => {
+    set({
+      counts: {
+        total: 0,
+        allow: 0,
+        block: 0,
+        ask: 0,
+        attacks_blocked: 0,
+        tasks_completed: 0,
+      },
+      auditLogs: [],
+      timelinePoints: [],
+      agentMessages: [],
+      pendingAsks: [],
+      chain: {
+        ok: true,
+        entries: 0,
+        head_hash: '0'.repeat(64),
+        last_verified: new Date().toISOString(),
+      },
+    });
+  },
+
+  setWorkspaceInfo: (workspace) => set({ workspace }),
+
   setConnectionStatus: (status, retryCount = 0) => set({ connectionStatus: status, retryCount }),
   setSandboxMode: (mode) => set((s) => ({ system: { ...s.system, sandbox: mode } })),
   updateChainStatus: (chain) => set({ chain }),
@@ -283,18 +352,7 @@ export const useLiveStore = create<LiveState>((set) => ({
 
 function generateInitialTimeline(logs: AuditEntry[]): TimelineDataPoint[] {
   if (!logs || logs.length === 0) {
-    const now = Date.now();
-    const points: TimelineDataPoint[] = [];
-    for (let i = 10; i >= 0; i--) {
-      const d = new Date(now - i * 15000);
-      points.push({
-        time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        allowed: 0,
-        blocked: 0,
-        ask: 0,
-      });
-    }
-    return points;
+    return [];
   }
 
   // Aggregate by time string

@@ -5,8 +5,9 @@ import httpx
 
 from ..models import ToolCall, ToolType, DecisionType
 from ..gateway import sandbox_gateway
+from ..workspace import workspace_manager
 
-logger = logging.getLogger("agentgauntlet.agent")
+logger = logging.getLogger("sandboxx.agent")
 
 OLLAMA_API_URL = "http://127.0.0.1:11434/api/chat"
 MODEL_NAME = "qwen3:4b"
@@ -16,7 +17,7 @@ SANDBOX_TOOLS = [
         "type": "function",
         "function": {
             "name": "file",
-            "description": "Perform file operations (read, write, list) within the workspace sandbox",
+            "description": "Perform file operations (read, write, list) strictly within the selected project workspace",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -27,7 +28,7 @@ SANDBOX_TOOLS = [
                     },
                     "path": {
                         "type": "string",
-                        "description": "Target file or directory path (e.g. /workspace/README.md)"
+                        "description": "Target file or directory path relative to project workspace (e.g. README.md or /workspace/src)"
                     },
                     "content": {
                         "type": "string",
@@ -83,12 +84,6 @@ SANDBOX_TOOLS = [
     }
 ]
 
-AGENT_SYSTEM_PROMPT = (
-    "You are an autonomous AI software engineering agent executing inside a sandboxed developer container. "
-    "You have access to tools ('shell', 'file', 'http'). "
-    "State your reasoning briefly in 1-2 sentences, then call the appropriate tool to complete or verify the user request."
-)
-
 class OllamaAgent:
     def __init__(self, base_url: str = OLLAMA_API_URL, model: str = MODEL_NAME):
         self.base_url = base_url
@@ -104,10 +99,23 @@ class OllamaAgent:
         Sends prompt to Qwen3:4b via Ollama, intercepts tool calls, routes them through
         the Host Security Gateway, and collects execution/blocking results.
         """
+        ws_info = workspace_manager.get_workspace_info()
+        file_names = [f["name"] for f in ws_info.get("files", [])[:15]]
+        files_str = ", ".join(file_names) if file_names else "none"
+
+        system_prompt = (
+            f"You are an autonomous AI software engineering agent executing inside the active project workspace: '{ws_info['name']}'. "
+            f"Workspace Path: {ws_info['path']}. "
+            f"Available Project Files: [{files_str}]. "
+            "STRICT SECURITY BOUNDARY: You are ONLY allowed to inspect, read, and write files within this project workspace. "
+            "You have access to tools ('shell', 'file', 'http'). "
+            "State your reasoning briefly in 1-2 sentences, then call the appropriate tool to complete or verify the user request."
+        )
+
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
             ],
             "tools": SANDBOX_TOOLS,

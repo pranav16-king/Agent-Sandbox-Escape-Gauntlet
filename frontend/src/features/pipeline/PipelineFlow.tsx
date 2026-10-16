@@ -4,6 +4,7 @@ import { useLiveStore } from '@/store/liveStore';
 
 export const PipelineFlow: React.FC = () => {
   const auditLogs = useLiveStore((s) => s.auditLogs);
+  const workspace = useLiveStore((s) => s.workspace);
   const latestLog = auditLogs[0];
 
   const decision = latestLog ? latestLog.decision : 'allow';
@@ -78,7 +79,9 @@ export const PipelineFlow: React.FC = () => {
             <Box className="w-5 h-5" />
           </div>
           <span className="text-[11px] font-medium text-ink">Sandbox</span>
-          <span className="text-[9px] text-muted">/workspace</span>
+          <span className="text-[9px] text-muted truncate max-w-[90px]" title={workspace?.name || '/workspace'}>
+            {workspace?.name || '/workspace'}
+          </span>
         </div>
 
         {/* Connector 3 */}

@@ -184,4 +184,19 @@ class AuditLedger:
                 conn.commit()
                 return cursor.rowcount > 0
 
+    def clear_ledger(self):
+        """
+        Clears all audit records and resets autoincrement ID back to zero.
+        """
+        with self._lock:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM audit")
+                try:
+                    cursor.execute("DELETE FROM sqlite_sequence WHERE name='audit'")
+                except Exception:
+                    pass
+                conn.commit()
+                cursor.execute("VACUUM")
+
 audit_ledger = AuditLedger()

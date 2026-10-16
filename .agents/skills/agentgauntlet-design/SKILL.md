@@ -1,9 +1,9 @@
 ---
 name: agentgauntlet-design
-description: Design system for the AgentGauntlet security dashboard (React + TSX + Tailwind). Use when building or reviewing any AgentGauntlet UI - covers the four themes (Light, Dark, Black, Grey), required color pairings, decision colors (allow/block/ask), tokens, layout sizing, and component rules. No blue or purple anywhere.
+description: Design system for the sandboxX security dashboard (React + TSX + Tailwind). Use when building or reviewing any sandboxX UI - covers the four themes (Light, Dark, Black, Grey), required color pairings, decision colors (allow/block/ask), tokens, layout sizing, and component rules. No blue or purple anywhere.
 ---
 
-# AgentGauntlet Design Skill
+# sandboxX Design Skill
 
 Apply these rules to every screen, component, chart and state in the dashboard. Use tokens only. Never hard-code hex values in components.
 

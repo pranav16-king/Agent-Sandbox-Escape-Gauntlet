@@ -1,14 +1,17 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, Download, Filter } from 'lucide-react';
+import { Search, Download, Filter, Trash2 } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
 import { useUiStore } from '@/store/uiStore';
+import { api } from '@/api/rest';
 import { DecisionBadge } from '@/components/DecisionBadge';
 import { HashChip } from '@/components/HashChip';
 import { Decision } from '@/api/types';
 
 export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360px]' }) => {
   const auditLogs = useLiveStore((s) => s.auditLogs);
+  const clearLogs = useLiveStore((s) => s.clearLogs);
+  const [isClearing, setIsClearing] = useState(false);
   const {
     filterKind,
     setFilterKind,
@@ -19,6 +22,21 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
     openDrawer,
     selectedAuditId,
   } = useUiStore();
+
+  const handleClear = async () => {
+    if (!window.confirm('Are you sure you want to clear all audit records and reset the ledger?')) {
+      return;
+    }
+    setIsClearing(true);
+    try {
+      await api.clearAuditLogs();
+      clearLogs();
+    } catch (err) {
+      console.error('Failed to clear audit ledger:', err);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -66,7 +84,7 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `agentgauntlet_audit_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `sandboxx_audit_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -135,11 +153,24 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
           <button
             type="button"
             onClick={exportCsv}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-line bg-surface hover:bg-raised text-ink transition-colors"
+            disabled={filteredLogs.length === 0}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-line bg-surface hover:bg-raised text-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title="Export filtered logs to CSV"
           >
             <Download className="w-3.5 h-3.5 text-muted" />
             <span className="hidden sm:inline">Export</span>
+          </button>
+
+          {/* Clear Logs */}
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={isClearing || auditLogs.length === 0}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-line bg-surface hover:bg-block-bg/20 text-muted hover:text-block transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Clear all audit logs from database and reset ledger"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isClearing ? 'Clearing...' : 'Clear'}</span>
           </button>
         </div>
       </div>
