@@ -248,48 +248,85 @@ export const WorkspaceSelector: React.FC = () => {
 
             {/* Directory Navigation Explorer */}
             {browseData && (
-              <div className="space-y-2 border border-line rounded-lg p-3 bg-raised/20">
-                <div className="flex items-center justify-between text-xs font-mono text-muted">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="font-semibold text-ink">Browsing:</span>
-                    <span className="truncate" title={browseData.current_path}>{browseData.current_path}</span>
+              <div className="space-y-2.5 border border-line rounded-lg p-3 bg-raised/20">
+                {/* Drives selector */}
+                {browseData.drives && browseData.drives.length > 0 && (
+                  <div className="flex items-center gap-1.5 pb-2 border-b border-line/50">
+                    <span className="text-[11px] font-semibold text-muted">Drives:</span>
+                    {browseData.drives.map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => loadBrowsePath(d)}
+                        className={`px-2 py-0.5 text-xs font-mono rounded border transition-colors ${
+                          browseData.current_path.toLowerCase().startsWith(d.slice(0, 2).toLowerCase())
+                            ? 'bg-accent text-on-accent border-accent font-bold shadow-sm'
+                            : 'bg-surface hover:bg-raised text-ink border-line'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
                   </div>
-                  {browseData.parent_path && (
+                )}
+
+                {/* Current browsing location & Up navigation */}
+                <div className="flex items-center justify-between text-xs font-mono text-muted gap-2">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="font-semibold text-ink shrink-0">Folder:</span>
+                    <span className="truncate text-ink font-semibold" title={browseData.current_path}>
+                      {browseData.current_path}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {browseData.parent_path && (
+                      <button
+                        type="button"
+                        onClick={() => loadBrowsePath(browseData.parent_path!)}
+                        className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+                        title="Go up to parent directory"
+                      >
+                        <CornerLeftUp className="w-3.5 h-3.5" />
+                        <span>Up</span>
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => loadBrowsePath(browseData.parent_path!)}
-                      className="flex items-center gap-1 text-[11px] text-accent hover:underline shrink-0"
+                      onClick={() => handleApplyWorkspace(browseData.current_path)}
+                      className="px-2.5 py-1 text-[11px] font-sans font-semibold rounded bg-accent text-on-accent hover:opacity-90 transition-opacity"
                     >
-                      <CornerLeftUp className="w-3 h-3" />
-                      <span>Up</span>
+                      Select This Folder
                     </button>
-                  )}
+                  </div>
                 </div>
 
-                <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                {/* Subdirectories List */}
+                <div className="max-h-40 overflow-y-auto space-y-1 pr-1 border-t border-line/40 pt-2">
                   {browseData.directories.length === 0 ? (
-                    <div className="text-xs text-muted py-2 text-center">No subdirectories found.</div>
+                    <div className="text-xs text-muted py-3 text-center">No subdirectories in this folder.</div>
                   ) : (
                     browseData.directories.map((dir, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-1.5 rounded hover:bg-surface border border-transparent hover:border-line text-xs font-mono cursor-pointer transition-colors"
+                        className="flex items-center justify-between p-1.5 rounded hover:bg-surface border border-transparent hover:border-line text-xs font-mono cursor-pointer transition-colors group"
                         onClick={() => loadBrowsePath(dir.path)}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <Folder className="w-3.5 h-3.5 text-accent shrink-0" />
+                          <Folder className="w-3.5 h-3.5 text-accent shrink-0 group-hover:scale-110 transition-transform" />
                           <span className="truncate text-ink">{dir.name}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleApplyWorkspace(dir.path);
-                          }}
-                          className="px-2 py-0.5 text-[10px] font-sans font-semibold rounded bg-accent/20 hover:bg-accent text-accent hover:text-on-accent transition-colors"
-                        >
-                          Select
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleApplyWorkspace(dir.path);
+                            }}
+                            className="px-2 py-0.5 text-[10px] font-sans font-semibold rounded bg-surface hover:bg-accent text-ink hover:text-on-accent border border-line hover:border-accent transition-colors"
+                          >
+                            Set Workspace
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}

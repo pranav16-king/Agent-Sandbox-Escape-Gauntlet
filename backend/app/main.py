@@ -3,6 +3,7 @@ import time
 import asyncio
 from datetime import datetime, timezone
 from typing import Any, Optional
+from pathlib import Path
 import psutil
 from pydantic import BaseModel
 from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, Query
@@ -580,26 +581,45 @@ def api_browse_workspace(dir_path: Optional[str] = None):
     """
     Lists local folders to allow easy navigation and selection of project workspaces.
     """
-    target = Path(dir_path).resolve() if dir_path else workspace_manager.current_path
-    if not target.exists() or not target.is_dir():
+    clean_dir = dir_path.strip().strip('"').strip("'") if dir_path else None
+    try:
+        target = Path(clean_dir).resolve() if clean_dir else workspace_manager.current_path
+        if not target.exists() or not target.is_dir():
+            target = Path.cwd().resolve()
+    except Exception:
         target = Path.cwd().resolve()
 
     subdirs = []
     try:
         for p in sorted(target.iterdir()):
-            if p.is_dir() and not p.name.startswith(".") and p.name not in ("node_modules", "__pycache__", ".git"):
-                subdirs.append({
-                    "name": p.name,
-                    "path": p.as_posix()
-                })
-    except Exception:
+            try:
+                if p.is_dir() and not p.name.startswith(".") and p.name not in ("node_modules", "__pycache__", ".git", "$RECYCLE.BIN", "System Volume Information"):
+                    subdirs.append({
+                        "name": p.name,
+                        "path": p.as_posix()
+                    })
+            except (PermissionError, Exception):
+                pass
+    except (PermissionError, Exception):
         pass
 
     parent_path = target.parent.as_posix() if target.parent != target else None
+    
+    # Enumerate local drives on Windows
+    drives = []
+    for d in "CDEFGHIJKLMNOPQRSTUVWXYZ":
+        try:
+            dp = Path(f"{d}:/")
+            if dp.exists():
+                drives.append(f"{d}:/")
+        except Exception:
+            pass
+
     return {
         "current_path": target.as_posix(),
         "parent_path": parent_path,
-        "directories": subdirs[:50]
+        "directories": subdirs[:100],
+        "drives": drives
     }
 
 class AgentChatRequest(BaseModel):

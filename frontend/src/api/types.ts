@@ -131,6 +131,7 @@ export interface WorkspaceBrowseResult {
   current_path: string;
   parent_path?: string | null;
   directories: Array<{ name: string; path: string }>;
+  drives?: string[];
 }
 
 export interface SystemSnapshot {

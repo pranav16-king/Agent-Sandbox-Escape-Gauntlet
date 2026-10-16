@@ -24,11 +24,17 @@ class WorkspaceManager:
         Sets the active project workspace to a user-selected folder.
         Validates that the folder exists and is a directory.
         """
-        clean_str = new_path_str.strip()
+        clean_str = new_path_str.strip().strip('"').strip("'")
         if not clean_str:
             raise ValueError("Workspace path cannot be empty.")
 
-        target = Path(clean_str).resolve()
+        # If user requests /workspace or default sandbox, map to guaranteed sandbox directory
+        if clean_str in ("/workspace", "workspace", "/workspace/"):
+            target = (Path.cwd() / "data" / "workspace").resolve()
+            target.mkdir(parents=True, exist_ok=True)
+        else:
+            target = Path(clean_str).resolve()
+
         if not target.exists():
             raise ValueError(f"Directory does not exist: {clean_str}")
         if not target.is_dir():
