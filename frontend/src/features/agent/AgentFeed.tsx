@@ -1,11 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, User, ArrowDown } from 'lucide-react';
+import { Bot, User, ArrowDown, Maximize2, Minimize2 } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
 
-export const AgentFeed: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[320px]' }) => {
+export interface AgentFeedProps {
+  maxHeight?: string;
+  allowExpand?: boolean;
+}
+
+export const AgentFeed: React.FC<AgentFeedProps> = ({
+  maxHeight,
+  allowExpand = true,
+}) => {
   const agentMessages = useLiveStore((s) => s.agentMessages);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Auto-scroll logic
   useEffect(() => {
@@ -29,7 +38,11 @@ export const AgentFeed: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[32
   };
 
   return (
-    <div className="relative flex flex-col h-full rounded-card border border-line bg-surface overflow-hidden">
+    <div
+      className={`relative flex flex-col h-full rounded-card border border-line bg-surface overflow-hidden transition-all duration-200 ${
+        isExpanded ? 'min-h-[640px]' : ''
+      }`}
+    >
       <div className="p-3 border-b border-line flex items-center justify-between bg-raised/30">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-accent" />
@@ -37,15 +50,31 @@ export const AgentFeed: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[32
             Live Agent Activity Stream
           </h3>
         </div>
-        <span className="text-[11px] font-mono text-muted">
-          {agentMessages.length} events logged
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono text-muted">
+            {agentMessages.length} events logged
+          </span>
+          {allowExpand && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-1 rounded hover:bg-raised text-muted hover:text-ink transition-colors border border-transparent hover:border-line"
+              title={isExpanded ? 'Restore default height' : 'Expand stream height (640px)'}
+            >
+              {isExpanded ? (
+                <Minimize2 className="w-3.5 h-3.5 text-accent" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-1 p-3.5 space-y-3 overflow-y-auto ${maxHeight} text-xs leading-relaxed`}
+        className={`flex-1 min-h-0 p-3.5 space-y-3 overflow-y-auto text-xs leading-relaxed ${maxHeight || ''}`}
       >
         {agentMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-muted text-xs">

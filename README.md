@@ -3,7 +3,7 @@
 [![Track](https://img.shields.io/badge/Track-Open%20Weight%20AI%20%26%20Open%20Source%20Tools-blue.svg)](docs/problem_statement.md)
 [![Challenge](https://img.shields.io/badge/Challenge-PS01%20Agent%20Sandbox%20Escape%20Gauntlet-red.svg)](docs/problem_statement.md)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-80%2F80%20Passing-brightgreen.svg)](backend/tests/)
+[![Tests](https://img.shields.io/badge/Tests-96%2F96%20Passing-brightgreen.svg)](backend/tests/)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![React](https://img.shields.io/badge/React-18%20%7C%20TypeScript-blue.svg)](frontend/)
 [![Architecture](https://img.shields.io/badge/Architecture-Defense--in--Depth-orange.svg)](#-defense-in-depth-architecture)
@@ -351,7 +351,7 @@ Open your browser at **[http://127.0.0.1:5173/](http://127.0.0.1:5173/)** to acc
 ```bash
 python -m pytest backend/tests -v
 ```
-*Expected Output: 80 passed in ~14 seconds.*
+*Expected Output: 96 passed in ~14 seconds.*
 
 #### Frontend Type Checking & Production Build
 ```bash

@@ -22,13 +22,13 @@ export const Dashboard: React.FC = () => {
 
       {/* Row 2: Live Agent Activity (col 5) | Pipeline Flow (col 4) | System Status + Chain Card (col 3) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        <div className="lg:col-span-5 min-h-[380px] flex flex-col">
-          <AgentFeed maxHeight="h-[310px]" />
+        <div className="lg:col-span-5 min-h-[480px] flex flex-col">
+          <AgentFeed />
         </div>
-        <div className="lg:col-span-4 min-h-[380px] flex flex-col">
+        <div className="lg:col-span-4 min-h-[480px] flex flex-col">
           <PipelineFlow />
         </div>
-        <div className="lg:col-span-3 flex flex-col gap-3 min-h-[380px]">
+        <div className="lg:col-span-3 flex flex-col gap-3 min-h-[480px]">
           <div className="flex-1 min-h-0">
             <SystemStatus />
           </div>

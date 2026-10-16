@@ -681,10 +681,8 @@ def api_resolve_ask(
     req: AskResolutionBody,
     authorization: Optional[str] = Header(None)
 ):
-    approver = "dashboard-operator"
-    if authorization:
-        require_approver_token(authorization)
-        approver = "authorized-approver"
+    require_approver_token(authorization)
+    approver = "authorized-approver"
     dec = DecisionType.ALLOW if req.outcome in ("approve", "approved", "allow") else DecisionType.BLOCK
     success, message, record = sandbox_gateway.resolve_approval(
         audit_id=audit_id,
