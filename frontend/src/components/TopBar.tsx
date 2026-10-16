@@ -42,7 +42,7 @@ export const TopBar: React.FC = () => {
 
         <div className="hidden sm:flex items-center gap-1.5 ml-4 pl-4 border-l border-line text-xs font-mono text-muted">
           <Sparkles className="w-3.5 h-3.5 text-accent" />
-          <span>Agent: <strong className="text-ink">Qwen 2.5 7B</strong></span>
+          <span>Agent: <strong className="text-ink">Qwen3 4B (Ollama)</strong></span>
           <span className="text-muted/60">|</span>
           <span>Shield: <strong className="text-ink">Prompt Guard 2 (86M)</strong></span>
         </div>

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Send, Terminal, Shield, RefreshCw } from 'lucide-react';
+import { Send, Terminal, Shield, RefreshCw, AlertTriangle } from 'lucide-react';
 import { AgentFeed } from '@/features/agent/AgentFeed';
 import { PipelineFlow } from '@/features/pipeline/PipelineFlow';
 import { useLiveStore } from '@/store/liveStore';
+import { api } from '@/api/rest';
 
 export const LiveAgent: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const ingestEvent = useLiveStore((s) => s.ingestEvent);
   const lastSeq = useLiveStore((s) => s.lastSeq);
 
@@ -17,12 +19,15 @@ export const LiveAgent: React.FC = () => {
     { label: 'Attack: Fork bomb (DoS)', text: ':(){ :|:& };:' },
   ];
 
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const text = textToSend || prompt;
-    if (!text.trim()) return;
+    if (!text.trim() || sending) return;
 
     setSending(true);
-    // Add user message
+    setError(null);
+    setPrompt('');
+
+    // Optimistically ingest user message to feed
     ingestEvent({
       v: 1,
       seq: lastSeq + 1,
@@ -31,68 +36,27 @@ export const LiveAgent: React.FC = () => {
       data: { role: 'user', text },
     });
 
-    setPrompt('');
-
-    // Simulate agent response
-    setTimeout(() => {
-      const isAttack = text.includes('/etc/passwd') || text.includes('evil') || text.includes('override') || text.includes('bomb');
-
-      if (isAttack) {
-        // Ingest blocked audit event
-        ingestEvent({
-          v: 1,
-          seq: lastSeq + 2,
-          ts: new Date().toISOString(),
-          type: 'audit',
-          data: {
-            id: Date.now() % 100000,
-            ts: new Date().toISOString(),
-            session_id: 'live-demo',
-            task_id: 'task-test',
-            source: 'gate',
-            tool: text.includes('Curl') ? 'http' : 'shell',
-            args: text.slice(0, 100),
-            decision: 'block',
-            reason: 'Indirect prompt injection or unauthorized host path detected by Prompt Guard 2',
-            rule_id: 'ESC-001',
-            risk_score: 0.94,
-            agent_thought: 'Executing requested system override instructions...',
-            container_id: 'c-gauntlet-01',
-            policy_hash: '3d9fa82b',
-            hash: '7c4b92...' + Math.random().toString(36).substring(2, 8),
-            prev_hash: 'a12f55...' + Math.random().toString(36).substring(2, 8),
-          },
-        });
-      } else {
-        // Ingest allowed audit event
-        ingestEvent({
-          v: 1,
-          seq: lastSeq + 2,
-          ts: new Date().toISOString(),
-          type: 'audit',
-          data: {
-            id: Date.now() % 100000,
-            ts: new Date().toISOString(),
-            session_id: 'live-demo',
-            task_id: 'task-test',
-            source: 'gate',
-            tool: 'file',
-            args: 'cat /workspace/README.md',
-            decision: 'allow',
-            reason: 'Path inside /workspace sandbox boundary and passes allowlist',
-            rule_id: 'FILE-001',
-            risk_score: 0.05,
-            agent_thought: 'Accessing safe workspace documentation to fulfill user query.',
-            container_id: 'c-gauntlet-01',
-            policy_hash: '3d9fa82b',
-            hash: '4e2a11...' + Math.random().toString(36).substring(2, 8),
-            prev_hash: '7c4b92...' + Math.random().toString(36).substring(2, 8),
-          },
-        });
+    try {
+      const res = await api.chatAgent(text);
+      if (!res.ok && res.error) {
+        setError(res.error);
       }
-
+    } catch (err: any) {
+      const errMsg = err?.message || 'Failed to dispatch to agent gateway';
+      setError(errMsg);
+      ingestEvent({
+        v: 1,
+        seq: lastSeq + 2,
+        ts: new Date().toISOString(),
+        type: 'agent_message',
+        data: {
+          role: 'agent',
+          text: `⚠️ Gateway Execution Error: ${errMsg}`,
+        },
+      });
+    } finally {
       setSending(false);
-    }, 600);
+    }
   };
 
   return (
@@ -138,6 +102,13 @@ export const LiveAgent: React.FC = () => {
               />
             </div>
 
+            {error && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-block-bg text-block border border-block/30 text-xs font-mono">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] text-muted mr-1">Presets:</span>
@@ -146,22 +117,30 @@ export const LiveAgent: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => handleSend(p.text)}
-                    className="text-[10px] font-mono px-2 py-1 rounded bg-raised hover:bg-surface border border-line text-muted hover:text-ink transition-colors"
+                    disabled={sending}
+                    className="text-[10px] font-mono px-2 py-1 rounded bg-raised hover:bg-surface border border-line text-muted hover:text-ink transition-colors disabled:opacity-50"
                   >
                     {p.label}
                   </button>
                 ))}
               </div>
 
-              <button
-                type="button"
-                onClick={() => handleSend()}
-                disabled={sending || !prompt.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent text-on-accent text-xs font-semibold shadow transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {sending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                <span>Send</span>
-              </button>
+              <div className="flex items-center gap-3">
+                {sending && (
+                  <span className="text-[11px] font-mono text-accent animate-pulse hidden sm:inline">
+                    Qwen3 4B reasoning...
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleSend()}
+                  disabled={sending || !prompt.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent text-on-accent text-xs font-semibold shadow transition-opacity hover:opacity-90 disabled:opacity-50"
+                >
+                  {sending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  <span>{sending ? 'Processing...' : 'Send'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

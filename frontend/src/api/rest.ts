@@ -85,4 +85,29 @@ export const api = {
   }> => {
     return fetchJson('/api/policy');
   },
+
+  chatAgent: async (prompt: string, taskId?: string): Promise<{
+    ok: boolean;
+    model: string;
+    thought?: string;
+    content?: string;
+    tool_calls?: Array<{ id: string; name: string; args: any }>;
+    decisions?: Array<{
+      tool: string;
+      args: any;
+      decision: string;
+      reason: string;
+      rule_id: string;
+      score: number;
+      result?: any;
+      audit_id: number;
+    }>;
+    error?: string;
+  }> => {
+    return fetchJson('/api/agent/chat', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, task_id: taskId || 'live-demo' }),
+    });
+  },
 };
+

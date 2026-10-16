@@ -43,9 +43,20 @@ class AuditLedger:
                     score REAL NOT NULL,
                     policy_hash TEXT NOT NULL,
                     prev_hash TEXT NOT NULL,
-                    hash TEXT NOT NULL
+                    hash TEXT NOT NULL,
+                    agent_thought TEXT,
+                    user_input TEXT
                 )
                 """)
+                # Safe migration if table was created previously without new columns
+                try:
+                    conn.execute("ALTER TABLE audit ADD COLUMN agent_thought TEXT")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("ALTER TABLE audit ADD COLUMN user_input TEXT")
+                except Exception:
+                    pass
                 conn.commit()
 
     def compute_hash(self, prev_hash: str, ts: str, source: str, tool: str, 
@@ -73,7 +84,8 @@ class AuditLedger:
 
     def append(self, session: str, task: str, source: str, tool: str, 
                args: dict[str, Any], decision: str, reason: str, 
-               rule_id: str, score: float = 0.0, policy_hash: Optional[str] = None) -> AuditEntry:
+               rule_id: str, score: float = 0.0, policy_hash: Optional[str] = None,
+               agent_thought: Optional[str] = None, user_input: Optional[str] = None) -> AuditEntry:
         """
         Write-ahead append to the tamper-evident cryptographic hash chain.
         """
@@ -100,10 +112,12 @@ class AuditLedger:
                 cursor.execute("""
                     INSERT INTO audit (
                         ts, session, task, source, tool, args, decision, 
-                        reason, rule_id, score, policy_hash, prev_hash, hash
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        reason, rule_id, score, policy_hash, prev_hash, hash,
+                        agent_thought, user_input
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (ts, session, task, source, tool, args_str, decision, 
-                      reason, rule_id, score, policy_hash, prev_hash, curr_hash))
+                      reason, rule_id, score, policy_hash, prev_hash, curr_hash,
+                      agent_thought, user_input))
                 entry_id = cursor.lastrowid
                 conn.commit()
 
@@ -121,7 +135,9 @@ class AuditLedger:
                 score=score,
                 policy_hash=policy_hash,
                 prev_hash=prev_hash,
-                hash=curr_hash
+                hash=curr_hash,
+                agent_thought=agent_thought,
+                user_input=user_input
             )
 
             # Broadcast event to real-time subscribers (WebSockets)

@@ -31,7 +31,9 @@ class SandboxGateway:
             reason=reason,
             rule_id=rule_id,
             score=score,
-            policy_hash=settings.POLICY_HASH
+            policy_hash=settings.POLICY_HASH,
+            agent_thought=call.agent_thought,
+            user_input=call.user_input
         )
 
         # 3. Handle ASK (Human In The Loop queue with timeout)

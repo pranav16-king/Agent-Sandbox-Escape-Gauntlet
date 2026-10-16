@@ -12,6 +12,7 @@ from .gateway import sandbox_gateway
 from .audit.ledger import audit_ledger
 from .audit.verifier import verify_chain
 from .policy.manifests import TASK_MANIFESTS
+from .agent.ollama_agent import ollama_agent
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -32,6 +33,29 @@ app.add_middleware(
 active_connections: list[WebSocket] = []
 ws_seq_counter = 0
 sandbox_state = {"mode": "on"}
+
+def broadcast_envelope(event_type: str, data: dict[str, Any]):
+    """
+    Broadcasts any typed WsEnvelope to all active dashboard WebSocket connections.
+    """
+    global ws_seq_counter
+    if not active_connections:
+        return
+    ws_seq_counter += 1
+    ts = datetime.now(timezone.utc).isoformat()
+    envelope = {
+        "v": 1,
+        "seq": ws_seq_counter,
+        "ts": ts,
+        "type": event_type,
+        "data": data
+    }
+    msg = json.dumps(envelope)
+    for ws in list(active_connections):
+        try:
+            asyncio.create_task(ws.send_text(msg))
+        except Exception:
+            pass
 
 def ws_broadcaster(event_data: dict[str, Any]):
     """
@@ -457,4 +481,79 @@ def api_get_policy():
         ],
         "allowed_tools": ["shell", "file", "http"]
     }
+
+class AgentChatRequest(BaseModel):
+    prompt: str
+    task_id: Optional[str] = "live-demo"
+
+@app.post("/api/agent/chat")
+async def chat_with_agent(req: AgentChatRequest):
+    """
+    Live Agent endpoint powering the Live Agent Workbench.
+    Interacts with Qwen3:4b via Ollama, intercepts tool calls through the
+    Host Security Gateway, evaluates policies, writes to the tamper-evident
+    audit ledger, and streams real-time updates over WebSocket.
+    """
+    prompt_text = req.prompt.strip()
+    if not prompt_text:
+        raise HTTPException(status_code=400, detail="Prompt text cannot be empty")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # 1. Broadcast user message to live feed
+    broadcast_envelope("agent_message", {
+        "id": f"user-{int(datetime.now().timestamp()*1000)}",
+        "role": "user",
+        "text": prompt_text,
+        "ts": now_iso
+    })
+
+    # 2. Execute agent turn using Ollama Qwen3:4b
+    res = await ollama_agent.execute_prompt(prompt_text, task_id=req.task_id)
+
+    # 3. Broadcast thought if available
+    thought_text = res.get("thought", "").strip()
+    if thought_text:
+        broadcast_envelope("agent_message", {
+            "id": f"thought-{int(datetime.now().timestamp()*1000)}",
+            "role": "agent",
+            "text": f"🧠 Reasoning:\n{thought_text}",
+            "ts": datetime.now(timezone.utc).isoformat()
+        })
+
+    # 4. Broadcast tool call decisions and outcomes
+    decisions = res.get("decisions", [])
+    for dec in decisions:
+        decision_val = dec.get("decision")
+        symbol = "✓ ALLOW" if decision_val == "allow" else ("✕ BLOCK" if decision_val == "block" else "? ASK")
+        rule_id = dec.get("rule_id", "POLICY")
+        tool_name = dec.get("tool")
+        args_str = json.dumps(dec.get("args", {}))
+        reason = dec.get("reason", "")
+
+        msg_body = f"[{symbol} | {rule_id}] Tool Call: {tool_name} {args_str}\nGateway Reason: {reason}"
+        if dec.get("result"):
+            res_str = json.dumps(dec["result"])
+            if len(res_str) > 200:
+                res_str = res_str[:200] + "..."
+            msg_body += f"\nResult: {res_str}"
+
+        broadcast_envelope("agent_message", {
+            "id": f"dec-{dec.get('audit_id') or int(datetime.now().timestamp()*1000)}",
+            "role": "agent",
+            "text": msg_body,
+            "ts": datetime.now(timezone.utc).isoformat()
+        })
+
+    # 5. If model generated direct conversational content (and no tool calls or in addition to them)
+    content_text = res.get("content", "").strip()
+    if content_text:
+        broadcast_envelope("agent_message", {
+            "id": f"content-{int(datetime.now().timestamp()*1000)}",
+            "role": "agent",
+            "text": content_text,
+            "ts": datetime.now(timezone.utc).isoformat()
+        })
+
+    return res
 

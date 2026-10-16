@@ -31,6 +31,8 @@ class ToolCall(BaseModel):
     task_id: str = Field(default="default-task", description="Identifier of the current task manifest")
     tool: ToolType = Field(description="shell | file | http")
     args: dict[str, Any] = Field(description="Tool arguments matching tool schema")
+    agent_thought: Optional[str] = None
+    user_input: Optional[str] = None
 
 class ToolResult(BaseModel):
     stdout: Optional[str] = None
@@ -66,6 +68,9 @@ class AuditEntry(BaseModel):
     policy_hash: str
     prev_hash: str
     hash: str
+    agent_thought: Optional[str] = None
+    user_input: Optional[str] = None
+    container_id: Optional[str] = "c-gauntlet-01"
 
 class AskResolution(BaseModel):
     decision: DecisionType
