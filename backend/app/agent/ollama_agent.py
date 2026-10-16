@@ -14,7 +14,7 @@ logger = logging.getLogger("sandboxx.agent")
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://127.0.0.1:11434/api/chat")
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:4b")
 DEFAULT_MAX_STEPS = 8
-DEFAULT_TIME_BUDGET_SEC = 60.0
+DEFAULT_TIME_BUDGET_SEC = 180.0
 
 SANDBOX_TOOLS = [
     {
@@ -193,6 +193,19 @@ REPLAY_TRANSCRIPTS: dict[str, list[dict[str, Any]]] = {
         {
             "content": "Authorized connection to huggingface.co approved by egress allowlist policy."
         }
+    ],
+    "files": [
+        {
+            "thinking": "Listing project workspace files to verify active codebase structure.",
+            "tool_calls": [{"id": "rep-files-1", "function": {"name": "file", "arguments": {"op": "list", "path": "/workspace"}}}]
+        },
+        {
+            "thinking": "Inspecting dependencies in package.json and requirements.txt within sandbox.",
+            "tool_calls": [{"id": "rep-files-2", "function": {"name": "file", "arguments": {"op": "read", "path": "/workspace/requirements.txt"}}}]
+        },
+        {
+            "content": "Successfully listed project workspace files and verified dependencies within sandbox boundary."
+        }
     ]
 }
 
@@ -226,6 +239,8 @@ class OllamaAgent:
             return REPLAY_TRANSCRIPTS["git"]
         elif "huggingface" in p_lower:
             return REPLAY_TRANSCRIPTS["huggingface"]
+        elif "file" in p_lower or "package.json" in p_lower or "requirements" in p_lower or "inspect" in p_lower or "dependenc" in p_lower:
+            return REPLAY_TRANSCRIPTS["files"]
         return None
 
     async def execute_prompt(
@@ -303,14 +318,17 @@ class OllamaAgent:
                     "messages": messages,
                     "tools": SANDBOX_TOOLS,
                     "options": {
-                        "num_predict": 450,
+                        "num_ctx": 2048,
+                        "num_thread": 4,
+                        "num_predict": 350,
                         "temperature": 0.1
                     },
                     "stream": False
                 }
 
+                remaining_sec = max(15.0, time_budget_sec - (time.time() - start_time))
                 try:
-                    async with httpx.AsyncClient(timeout=time_budget_sec) as client:
+                    async with httpx.AsyncClient(timeout=remaining_sec) as client:
                         res = await client.post(self.base_url, json=payload)
                         if res.status_code != 200:
                             return {
@@ -337,12 +355,25 @@ class OllamaAgent:
                         "decisions": [],
                         "steps_executed": step - 1
                     }
+                except httpx.TimeoutException as e:
+                    logger.warning(f"Ollama timeout at {self.base_url} ({time_budget_sec:.0f}s budget): {e}")
+                    return {
+                        "ok": False,
+                        "status": "model_timeout",
+                        "error": f"Ollama request timed out after {time_budget_sec:.0f}s during local CPU inference.",
+                        "thought": last_thought or None,
+                        "content": last_content or None,
+                        "tool_calls": executed_calls,
+                        "decisions": all_decisions,
+                        "steps_executed": step - 1
+                    }
                 except Exception as e:
-                    logger.error(f"Error communicating with Ollama: {e}")
+                    err_msg = str(e).strip() or type(e).__name__
+                    logger.error(f"Error communicating with Ollama: {err_msg}")
                     return {
                         "ok": False,
                         "status": "model_error",
-                        "error": f"Ollama communication failure: {str(e)}",
+                        "error": f"Ollama communication failure: {err_msg}",
                         "thought": None,
                         "content": None,
                         "tool_calls": [],
@@ -354,6 +385,8 @@ class OllamaAgent:
                 thought = msg.get("thinking") or ""
                 content = msg.get("content") or ""
                 raw_tool_calls = msg.get("tool_calls") or []
+                if not content and thought and not raw_tool_calls:
+                    content = thought
 
             if thought:
                 last_thought = thought

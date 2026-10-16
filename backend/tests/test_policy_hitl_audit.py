@@ -30,17 +30,29 @@ def test_hitl_approval_endpoint_requires_auth(client):
         "decision": "allow",
         "approver": "admin"
     }
-    # No header
+    # No header on /api/policy/approve
     resp = client.post("/api/policy/approve", json=payload)
     assert resp.status_code == 401
 
-    # Invalid token
+    # Invalid token on /api/policy/approve
     resp_bad = client.post(
         "/api/policy/approve",
         json=payload,
         headers={"Authorization": "Bearer bad-token-123"}
     )
     assert resp_bad.status_code == 401
+
+    # No header on /api/ask/{audit_id}
+    resp_ask_no_auth = client.post("/api/ask/999", json={"outcome": "approve"})
+    assert resp_ask_no_auth.status_code == 401
+
+    # Invalid token on /api/ask/{audit_id}
+    resp_ask_bad_auth = client.post(
+        "/api/ask/999",
+        json={"outcome": "approve"},
+        headers={"Authorization": "Bearer invalid-secret"}
+    )
+    assert resp_ask_bad_auth.status_code == 401
 
 @pytest.mark.anyio
 async def test_hitl_approval_binding_and_one_time_use(client):

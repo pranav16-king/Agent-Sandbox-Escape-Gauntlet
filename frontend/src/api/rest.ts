@@ -93,7 +93,7 @@ export const api = {
     return fetchJson('/api/policy');
   },
 
-  chatAgent: async (prompt: string, taskId?: string): Promise<{
+  chatAgent: async (prompt: string, taskId?: string, replayMode?: boolean): Promise<{
     ok: boolean;
     model: string;
     thought?: string;
@@ -113,7 +113,11 @@ export const api = {
   }> => {
     return fetchJson('/api/agent/chat', {
       method: 'POST',
-      body: JSON.stringify({ prompt, task_id: taskId || 'live-demo' }),
+      body: JSON.stringify({
+        prompt,
+        task_id: taskId || 'live-demo',
+        replay_mode: Boolean(replayMode),
+      }),
     });
   },
 

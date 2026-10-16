@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Terminal, Shield, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Send, Terminal, Shield, RefreshCw, AlertTriangle, Zap, Cpu } from 'lucide-react';
 import { AgentFeed } from '@/features/agent/AgentFeed';
 import { PipelineFlow } from '@/features/pipeline/PipelineFlow';
 import { WorkspaceSelector } from '@/features/agent/WorkspaceSelector';
@@ -10,6 +10,7 @@ export const LiveAgent: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [replayMode, setReplayMode] = useState(false);
   const ingestEvent = useLiveStore((s) => s.ingestEvent);
   const lastSeq = useLiveStore((s) => s.lastSeq);
   const workspace = useLiveStore((s) => s.workspace);
@@ -41,7 +42,7 @@ export const LiveAgent: React.FC = () => {
     });
 
     try {
-      const res = await api.chatAgent(text);
+      const res = await api.chatAgent(text, undefined, replayMode);
       if (!res.ok && res.error) {
         setError(res.error);
       }
@@ -72,6 +73,21 @@ export const LiveAgent: React.FC = () => {
             Interact with the autonomous coding agent directly through the Host Security Gateway.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setReplayMode(!replayMode)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
+              replayMode
+                ? 'bg-accent/20 border-accent text-accent font-semibold'
+                : 'bg-raised border-line text-muted hover:text-ink'
+            }`}
+            title="Toggle between Live Ollama CPU execution and Fast Deterministic Replay demo"
+          >
+            {replayMode ? <Zap className="w-3.5 h-3.5 text-accent" /> : <Cpu className="w-3.5 h-3.5 text-muted" />}
+            <span>{replayMode ? '⚡ Replay Mode (Instant)' : '🤖 Live Ollama (CPU)'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Project Workspace Boundary & Selector */}
@@ -81,7 +97,7 @@ export const LiveAgent: React.FC = () => {
         {/* Left: Interactive Feed (col 7) */}
         <div className="lg:col-span-7 flex flex-col gap-4">
           <div className="h-[480px]">
-            <AgentFeed maxHeight="h-[410px]" />
+            <AgentFeed />
           </div>
 
           {/* Prompt Input Form */}
