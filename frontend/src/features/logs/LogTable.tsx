@@ -8,6 +8,22 @@ import { DecisionBadge } from '@/components/DecisionBadge';
 import { HashChip } from '@/components/HashChip';
 import { Decision } from '@/api/types';
 
+function formatArgsSummary(argsStr: string): string {
+  if (!argsStr || argsStr === '<empty>') return '—';
+  try {
+    const p = JSON.parse(argsStr);
+    if (typeof p === 'object' && p !== null) {
+      if (p.cmd) return `$ ${p.cmd}`;
+      if (p.path) return `${(p.op || 'file').toUpperCase()} ${p.path}`;
+      if (p.url) return `${(p.method || 'HTTP').toUpperCase()} ${p.url}`;
+      if (p.prompt_preview) return `Prompt: "${p.prompt_preview}"`;
+      const firstEntry = Object.entries(p)[0];
+      if (firstEntry) return `${firstEntry[0]}: ${String(firstEntry[1])}`;
+    }
+  } catch {}
+  return argsStr;
+}
+
 export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360px]' }) => {
   const auditLogs = useLiveStore((s) => s.auditLogs);
   const clearLogs = useLiveStore((s) => s.clearLogs);
@@ -258,7 +274,7 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
                     </div>
                     <div className="col-span-3 text-ink truncate font-mono text-[11px]" title={entry.args}>
                       <span className="px-1.5 py-0.5 rounded bg-raised/50 border border-line/30 text-ink truncate block">
-                        {entry.args || '—'}
+                        {formatArgsSummary(entry.args)}
                       </span>
                     </div>
                     <div className="col-span-2 text-muted truncate text-[11px]" title={entry.reason}>

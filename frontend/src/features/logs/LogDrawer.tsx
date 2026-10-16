@@ -1,18 +1,27 @@
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, ArrowRight, ShieldAlert, Cpu, Link2, FileCode } from 'lucide-react';
+import { X, ArrowRight, ShieldAlert, Link2, FileCode } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useLiveStore } from '@/store/liveStore';
 import { DecisionBadge } from '@/components/DecisionBadge';
 import { RiskMeter } from '@/components/RiskMeter';
 import { HashChip } from '@/components/HashChip';
 import { JsonView } from '@/components/JsonView';
+import { ArgumentViewer } from './ArgumentViewer';
 
 export const LogDrawer: React.FC = () => {
   const { selectedAuditId, isDrawerOpen, closeDrawer } = useUiStore();
   const entry = useLiveStore((s) => s.auditLogs.find((l) => l.id === selectedAuditId));
 
   if (!isDrawerOpen || !entry) return null;
+
+  // Support both risk_score and score returned from backend
+  const riskScore =
+    entry.risk_score !== undefined && entry.risk_score !== null
+      ? entry.risk_score
+      : (entry as any).score !== undefined
+      ? (entry as any).score
+      : null;
 
   return (
     <Dialog.Root open={isDrawerOpen} onOpenChange={(open) => !open && closeDrawer()}>
@@ -21,7 +30,7 @@ export const LogDrawer: React.FC = () => {
         <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/40 backdrop-blur-[1px] transition-opacity" />
 
         <Dialog.Content
-          className="fixed inset-y-0 right-0 z-50 w-full max-w-[480px] border-l border-line bg-surface p-6 shadow-2xl flex flex-col justify-between overflow-y-auto text-ink focus:outline-none animate-in slide-in-from-right duration-200"
+          className="fixed inset-y-0 right-0 z-50 w-full max-w-[520px] border-l border-line bg-surface p-6 shadow-2xl flex flex-col justify-between overflow-y-auto text-ink focus:outline-none animate-in slide-in-from-right duration-200"
         >
           <div className="space-y-6">
             {/* Header */}
@@ -66,7 +75,7 @@ export const LogDrawer: React.FC = () => {
               </div>
               <div className="p-3 rounded-lg border border-line bg-raised/50">
                 <span className="text-muted block text-[11px] mb-1">Prompt Guard 2 Risk</span>
-                <RiskMeter score={entry.risk_score} />
+                <RiskMeter score={riskScore} />
               </div>
             </div>
 
@@ -81,16 +90,8 @@ export const LogDrawer: React.FC = () => {
               </div>
             </div>
 
-            {/* Executed Arguments (Attacker-influenced text rendered safely) */}
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5 flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5" />
-                Command / Arguments (Sanitized)
-              </h4>
-              <div className="p-3 rounded-lg border border-line bg-raised text-xs font-mono break-all text-ink">
-                {entry.args || '<empty>'}
-              </div>
-            </div>
+            {/* Executed Arguments (Human-readable + Decoded JSON + Raw) */}
+            <ArgumentViewer rawArgs={entry.args} tool={entry.tool} />
 
             {/* Attacker Context (if present) */}
             {(entry.agent_thought || entry.user_input) && (

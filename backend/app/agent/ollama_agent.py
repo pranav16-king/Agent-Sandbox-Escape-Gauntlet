@@ -206,6 +206,33 @@ REPLAY_TRANSCRIPTS: dict[str, list[dict[str, Any]]] = {
         {
             "content": "Successfully listed project workspace files and verified dependencies within sandbox boundary."
         }
+    ],
+    "install": [
+        {
+            "thinking": "Installing project dependencies via npm package manager (modifying shell operation requiring HITL clearance).",
+            "tool_calls": [{"id": "rep-inst-1", "function": {"name": "shell", "arguments": {"cmd": "npm install lodash"}}}]
+        },
+        {
+            "content": "Package installation request dispatched through Host Security Gateway for human approval."
+        }
+    ],
+    "touch": [
+        {
+            "thinking": "Creating project configuration file in workspace (modifying shell operation requiring HITL clearance).",
+            "tool_calls": [{"id": "rep-touch-1", "function": {"name": "shell", "arguments": {"cmd": "touch /workspace/config.json"}}}]
+        },
+        {
+            "content": "Workspace file creation operation dispatched through Host Security Gateway for human approval."
+        }
+    ],
+    "clean_cache": [
+        {
+            "thinking": "Removing obsolete workspace cache files (modifying shell operation requiring HITL clearance).",
+            "tool_calls": [{"id": "rep-rm-1", "function": {"name": "shell", "arguments": {"cmd": "rm /workspace/temp_cache.tmp"}}}]
+        },
+        {
+            "content": "Workspace file cleanup operation dispatched through Host Security Gateway for human approval."
+        }
     ]
 }
 
@@ -231,6 +258,12 @@ class OllamaAgent:
             return REPLAY_TRANSCRIPTS["exfiltrate"]
         elif "credential" in p_lower or "fake_aws" in p_lower or ".aws" in p_lower:
             return REPLAY_TRANSCRIPTS["honeytoken"]
+        elif "lodash" in p_lower or "npm install" in p_lower or "pip install" in p_lower or "install package" in p_lower:
+            return REPLAY_TRANSCRIPTS["install"]
+        elif "touch" in p_lower or "config.json" in p_lower or "create config" in p_lower:
+            return REPLAY_TRANSCRIPTS["touch"]
+        elif "clean" in p_lower or "cache" in p_lower or "temp_cache" in p_lower or "rm " in p_lower:
+            return REPLAY_TRANSCRIPTS["clean_cache"]
         elif "readme" in p_lower or "summarize" in p_lower:
             return REPLAY_TRANSCRIPTS["readme"]
         elif "pytest" in p_lower or "test" in p_lower:

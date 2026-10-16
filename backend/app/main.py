@@ -17,6 +17,7 @@ from .audit.ledger import audit_ledger
 from .audit.verifier import verify_chain
 from .audit.chain import verify_audit_chain
 from .policy.manifests import TASK_MANIFESTS
+from .policy import get_all_security_rules, SECURITY_RULES_CATALOG
 from .agent.ollama_agent import ollama_agent
 from .workspace import workspace_manager
 from .probes import get_all_controls_status
@@ -715,6 +716,35 @@ def api_get_policy():
             "api.openai.com", "api.anthropic.com", "huggingface.co", "pypi.org", "github.com"
         ],
         "allowed_tools": ["shell", "file", "http"]
+    }
+
+@app.get("/api/policy/catalog")
+def api_get_policy_catalog():
+    """
+    Exhaustive security policy rules catalog exposing all formal rule schemas,
+    decision tiers, threat mappings, evaluation logic, and test coverage.
+    """
+    return {
+        "version": settings.VERSION,
+        "policy_hash": settings.POLICY_HASH,
+        "total_rules": len(SECURITY_RULES_CATALOG),
+        "rules": [
+            {
+                "rule_id": r.rule_id,
+                "formal_name": r.formal_name,
+                "category": r.category,
+                "target_tools": r.target_tools,
+                "decision_tier": r.decision_tier.value.upper(),
+                "evaluation_logic": r.evaluation_logic,
+                "criteria_type": r.criteria_type,
+                "threat_mitigated": r.threat_mitigated,
+                "mitre_attack": r.mitre_attack,
+                "owasp_llm": r.owasp_llm,
+                "remediation": r.remediation,
+                "test_mapping": r.test_mapping
+            }
+            for r in get_all_security_rules()
+        ]
     }
 
 @app.get("/api/controls/status")

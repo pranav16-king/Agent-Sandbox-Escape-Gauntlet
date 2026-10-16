@@ -57,6 +57,20 @@ def test_api_policy(client):
     assert "egress_domains" in data
     assert "api.openai.com" in data["egress_domains"]
 
+def test_api_policy_catalog(client):
+    response = client.get("/api/policy/catalog")
+    assert response.status_code == 200
+    data = response.json()
+    assert "version" in data
+    assert "policy_hash" in data
+    assert data["total_rules"] >= 20
+    assert len(data["rules"]) == data["total_rules"]
+    rule_ids = [r["rule_id"] for r in data["rules"]]
+    assert "FS-001" in rule_ids
+    assert "NET-003" in rule_ids
+    assert "CMD-001" in rule_ids
+    assert "HITL-001" in rule_ids
+
 def test_api_audit_clear(client):
     response = client.post("/api/audit/clear")
     assert response.status_code == 200

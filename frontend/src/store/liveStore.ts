@@ -204,9 +204,39 @@ export const useLiveStore = create<LiveState>((set) => ({
 
         case 'agent_message': {
           const msg = event.data as AgentMessage;
+          const messages = state.agentMessages;
+
+          // 1. Exact match by message ID
+          const existingByIdx = msg.id ? messages.findIndex((m) => m.id === msg.id) : -1;
+          if (existingByIdx !== -1) {
+            const updated = [...messages];
+            updated[existingByIdx] = { ...updated[existingByIdx], ...msg };
+            return {
+              lastSeq: nextSeq,
+              agentMessages: updated,
+            };
+          }
+
+          // 2. Deduplicate user message if optimistically ingested recently
+          if (msg.role === 'user') {
+            const searchSlice = messages.slice(-6);
+            const optimisticOffset = searchSlice.findIndex(
+              (m) => m.role === 'user' && m.text.trim() === msg.text.trim()
+            );
+            if (optimisticOffset !== -1) {
+              const realIdx = messages.length - searchSlice.length + optimisticOffset;
+              const updated = [...messages];
+              updated[realIdx] = { ...updated[realIdx], ...msg };
+              return {
+                lastSeq: nextSeq,
+                agentMessages: updated,
+              };
+            }
+          }
+
           return {
             lastSeq: nextSeq,
-            agentMessages: [...state.agentMessages, msg].slice(-MAX_MESSAGES),
+            agentMessages: [...messages, msg].slice(-MAX_MESSAGES),
           };
         }
 

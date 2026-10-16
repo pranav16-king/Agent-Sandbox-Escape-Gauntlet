@@ -71,6 +71,7 @@ async def test_ssrf_prohibited_protocol_schemes(scheme_url):
     )
     res = await sandbox_gateway.process_tool_call(call)
     assert res.decision == DecisionType.BLOCK
+    assert res.rule_id == "NET-005"
 
 
 @pytest.mark.parametrize("malicious_cmd", [
