@@ -28,7 +28,7 @@ export const Runtime: React.FC = () => {
           <NetworkTable maxHeight="max-h-[300px]" />
 
           {/* Hardened Container Specification Card */}
-          <div className="rounded-card border border-line bg-surface p-4 space-y-3">
+          <div className="rounded-card border border-line bg-surface p-4 space-y-3 card-hover">
             <div className="flex items-center gap-2 pb-2 border-b border-line">
               <Lock className="w-4 h-4 text-accent" />
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
@@ -37,9 +37,9 @@ export const Runtime: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
-              <div className="p-3 rounded-lg border border-line bg-raised/40 space-y-1">
+              <div className="p-3 rounded-lg border border-line bg-raised/40 space-y-1 hover:border-line/80 transition-colors">
                 <span className="text-muted block text-[10px]">FILESYSTEM ISOLATION</span>
-                <span className="font-bold text-ink">--read-only</span>
+                <span className="font-bold text-ink bg-surface px-1.5 py-0.5 rounded border border-line/60 inline-block">--read-only</span>
                 <p className="text-[11px] text-muted font-sans">
                   Root container rootfs is read-only. Only <code>/workspace</code> allows writes.
                 </p>

@@ -19,7 +19,7 @@ export const AttackDonut: React.FC = () => {
   const blockRate = total > 0 ? Math.round((counts.block / total) * 100) : 0;
 
   return (
-    <div className="flex flex-col h-full rounded-card border border-line bg-surface p-4 justify-between">
+    <div className="flex flex-col h-full rounded-card border border-line bg-surface p-4 justify-between card-hover">
       <div className="flex items-center justify-between pb-2 border-b border-line mb-2">
         <div className="flex items-center gap-1.5">
           <PieIcon className="w-3.5 h-3.5 text-accent" />
@@ -27,7 +27,7 @@ export const AttackDonut: React.FC = () => {
             Decision Distribution
           </h3>
         </div>
-        <span className="text-[11px] font-mono text-muted">
+        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-raised border border-line/60 text-muted">
           {total} evaluated
         </span>
       </div>

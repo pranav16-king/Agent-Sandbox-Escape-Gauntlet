@@ -55,7 +55,7 @@ export const ResourceGauges: React.FC = () => {
   const resources = useLiveStore((s) => s.resources);
 
   return (
-    <div className="rounded-card border border-line bg-surface p-4 flex flex-col justify-between h-full">
+    <div className="rounded-card border border-line bg-surface p-4 flex flex-col justify-between h-full card-hover">
       <div className="flex items-center justify-between pb-2 border-b border-line mb-3">
         <div className="flex items-center gap-1.5">
           <Server className="w-3.5 h-3.5 text-accent" />

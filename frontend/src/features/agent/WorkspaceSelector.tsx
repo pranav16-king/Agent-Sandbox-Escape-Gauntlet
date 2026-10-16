@@ -86,7 +86,7 @@ export const WorkspaceSelector: React.FC = () => {
   };
 
   return (
-    <div className="rounded-card border border-line bg-surface overflow-hidden">
+    <div className="rounded-card border border-line bg-surface overflow-hidden card-hover">
       {/* Top Banner Bar */}
       <div className="p-3.5 flex flex-wrap items-center justify-between gap-3 bg-raised/30 border-b border-line">
         <div className="flex items-center gap-3 min-w-0">

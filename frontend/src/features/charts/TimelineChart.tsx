@@ -17,7 +17,7 @@ export const TimelineChart: React.FC = () => {
   const colors = useThemeColors();
 
   return (
-    <div className="flex flex-col h-full rounded-card border border-line bg-surface p-4">
+    <div className="flex flex-col h-full rounded-card border border-line bg-surface p-4 card-hover">
       <div className="flex items-center justify-between pb-2 border-b border-line mb-3">
         <div className="flex items-center gap-1.5">
           <Activity className="w-3.5 h-3.5 text-accent" />

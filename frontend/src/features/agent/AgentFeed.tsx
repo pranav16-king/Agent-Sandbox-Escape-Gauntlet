@@ -39,20 +39,24 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
 
   return (
     <div
-      className={`relative flex flex-col h-full rounded-card border border-line bg-surface overflow-hidden transition-all duration-200 ${
+      className={`relative flex flex-col h-full rounded-card border border-line bg-surface overflow-hidden transition-all duration-200 card-hover ${
         isExpanded ? 'min-h-[640px]' : ''
       }`}
     >
       <div className="p-3 border-b border-line flex items-center justify-between bg-raised/30">
         <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-allow animate-pulse" />
           <Bot className="w-4 h-4 text-accent" />
           <h3 className="text-xs font-semibold text-ink uppercase tracking-wider">
             Live Agent Activity Stream
           </h3>
         </div>
         <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised border border-line/60 text-muted">
+            Qwen3 4B
+          </span>
           <span className="text-[11px] font-mono text-muted">
-            {agentMessages.length} events logged
+            {agentMessages.length} events
           </span>
           {allowExpand && (
             <button
@@ -77,9 +81,14 @@ export const AgentFeed: React.FC<AgentFeedProps> = ({
         className={`flex-1 min-h-0 p-3.5 space-y-3 overflow-y-auto text-xs leading-relaxed ${maxHeight || ''}`}
       >
         {agentMessages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-muted text-xs">
-            <Bot className="w-8 h-8 mb-2 opacity-40 text-muted" />
-            <span>Awaiting agent task instructions or scenario execution.</span>
+          <div className="h-full flex flex-col items-center justify-center text-muted text-xs p-6 text-center">
+            <div className="w-10 h-10 rounded-full bg-raised/70 border border-line flex items-center justify-center mb-2 text-accent">
+              <Bot className="w-5 h-5 opacity-70" />
+            </div>
+            <span className="font-semibold text-ink">Awaiting Agent Activity</span>
+            <span className="text-[11px] text-muted mt-0.5">
+              Run an attack scenario from the gauntlet or send a task in Live Agent workbench.
+            </span>
           </div>
         ) : (
           agentMessages.map((msg, idx) => {

@@ -90,15 +90,20 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
     document.body.removeChild(link);
   };
 
-  const chips: { id: 'all' | Decision; label: string }[] = [
-    { id: 'all', label: 'All Events' },
-    { id: 'allow', label: 'Allowed' },
-    { id: 'block', label: 'Blocked' },
-    { id: 'ask', label: 'Human-in-the-Loop' },
+  const countAll = auditLogs.length;
+  const countAllow = auditLogs.filter((l) => l.decision === 'allow').length;
+  const countBlock = auditLogs.filter((l) => l.decision === 'block').length;
+  const countAsk = auditLogs.filter((l) => l.decision === 'ask').length;
+
+  const chips: { id: 'all' | Decision; label: string; count: number }[] = [
+    { id: 'all', label: 'All Events', count: countAll },
+    { id: 'allow', label: 'Allowed', count: countAllow },
+    { id: 'block', label: 'Blocked', count: countBlock },
+    { id: 'ask', label: 'Human-in-the-Loop', count: countAsk },
   ];
 
   return (
-    <div className="flex flex-col h-full rounded-card border border-line bg-surface overflow-hidden">
+    <div className="flex flex-col h-full rounded-card border border-line bg-surface overflow-hidden card-hover">
       {/* Controls Bar */}
       <div className="p-3 border-b border-line flex flex-wrap items-center justify-between gap-3 bg-raised/30">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -109,13 +114,18 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
                 key={chip.id}
                 type="button"
                 onClick={() => setFilterKind(chip.id)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors select-none ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors select-none ${
                   active
                     ? 'bg-accent text-on-accent font-semibold shadow-sm'
                     : 'bg-surface hover:bg-raised text-muted hover:text-ink border border-line'
                 }`}
               >
-                {chip.label}
+                <span>{chip.label}</span>
+                <span className={`text-[10px] font-mono px-1 rounded ${
+                  active ? 'bg-on-accent/20 text-on-accent' : 'bg-raised text-muted'
+                }`}>
+                  {chip.count}
+                </span>
               </button>
             );
           })}
@@ -241,12 +251,18 @@ export const LogTable: React.FC<{ maxHeight?: string }> = ({ maxHeight = 'h-[360
                     <div className="col-span-2">
                       <DecisionBadge decision={entry.decision} size="sm" />
                     </div>
-                    <div className="col-span-1 uppercase text-ink font-semibold truncate">{entry.tool}</div>
-                    <div className="col-span-3 text-ink truncate font-mono" title={entry.args}>
-                      {entry.args || '—'}
+                    <div className="col-span-1">
+                      <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-raised border border-line text-ink font-semibold">
+                        {entry.tool}
+                      </span>
                     </div>
-                    <div className="col-span-2 text-muted truncate" title={entry.reason}>
-                      <span className="text-accent mr-1 font-semibold">{entry.rule_id}</span>
+                    <div className="col-span-3 text-ink truncate font-mono text-[11px]" title={entry.args}>
+                      <span className="px-1.5 py-0.5 rounded bg-raised/50 border border-line/30 text-ink truncate block">
+                        {entry.args || '—'}
+                      </span>
+                    </div>
+                    <div className="col-span-2 text-muted truncate text-[11px]" title={entry.reason}>
+                      <span className="text-accent mr-1 font-semibold font-mono text-[10px]">{entry.rule_id}</span>
                       {entry.reason}
                     </div>
                     <div className="col-span-1 flex justify-end">

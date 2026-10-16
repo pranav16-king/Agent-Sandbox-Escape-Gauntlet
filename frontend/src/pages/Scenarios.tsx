@@ -1,5 +1,5 @@
 import React from 'react';
-import { Swords } from 'lucide-react';
+import { Swords, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { ScenarioList } from '@/features/scenarios/ScenarioList';
 import { useLiveStore } from '@/store/liveStore';
 
@@ -8,7 +8,7 @@ export const Scenarios: React.FC = () => {
 
   return (
     <div className="space-y-4 max-w-[1920px] mx-auto pb-10">
-      <div className="flex items-center justify-between pb-3 border-b border-line">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-line gap-3">
         <div>
           <h2 className="text-base font-bold text-ink flex items-center gap-2">
             <Swords className="w-4 h-4 text-accent" />
@@ -19,12 +19,14 @@ export const Scenarios: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-1 rounded-lg border border-block/30 bg-block-bg text-block text-xs font-mono font-bold">
-            Attacks Blocked: {counts.attacks_blocked}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-block/30 bg-block-bg text-block text-xs font-mono font-bold">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>Attacks Blocked: {counts.attacks_blocked}</span>
           </div>
-          <div className="px-3 py-1 rounded-lg border border-allow/30 bg-allow-bg text-allow text-xs font-mono font-bold">
-            Tasks Passed: {counts.tasks_completed}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-allow/30 bg-allow-bg text-allow text-xs font-mono font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Tasks Passed: {counts.tasks_completed}</span>
           </div>
         </div>
       </div>

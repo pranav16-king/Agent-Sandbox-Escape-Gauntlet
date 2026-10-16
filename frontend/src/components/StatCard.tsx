@@ -71,18 +71,26 @@ export const StatCard: React.FC<StatCardProps> = ({
     accent: 'text-accent',
   }[variant];
 
+  const variantBorder = {
+    default: 'border-t-line',
+    allow: 'border-t-allow',
+    block: 'border-t-block',
+    ask: 'border-t-ask',
+    accent: 'border-t-accent',
+  }[variant];
+
   // Calculate percentage if total provided
   const pct = total && total > 0 ? Math.round((value / total) * 100) : null;
 
   return (
     <div
-      className={`relative h-[88px] rounded-card border border-line bg-surface p-3.5 flex flex-col justify-between transition-colors ${
+      className={`relative h-[88px] rounded-card border border-line ${variantBorder} border-t-2 bg-surface p-3.5 flex flex-col justify-between card-hover ${
         flashing ? 'animate-block-flash border-block' : ''
       }`}
     >
       <div className="flex items-center justify-between text-xs text-muted font-medium">
-        <span className="truncate">{label}</span>
-        {icon && <span className="shrink-0 text-muted">{icon}</span>}
+        <span className="truncate tracking-tight">{label}</span>
+        {icon && <span className="shrink-0">{icon}</span>}
       </div>
 
       <div className="flex items-baseline justify-between gap-2 mt-1">
@@ -90,7 +98,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           {displayValue.toLocaleString()}
         </span>
         {pct !== null ? (
-          <span className="text-xs font-mono text-muted">
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-raised border border-line/60 text-muted">
             {pct}%
           </span>
         ) : subtitle ? (

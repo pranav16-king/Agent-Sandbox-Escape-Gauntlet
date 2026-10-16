@@ -1,6 +1,8 @@
 import React from 'react';
 import { ShieldCheck, Globe } from 'lucide-react';
 import { HashChip } from '@/components/HashChip';
+import { DecisionBadge } from '@/components/DecisionBadge';
+import { Decision } from '@/api/types';
 
 const RULES = [
   {
@@ -77,7 +79,7 @@ export const Policy: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Policy Rules Table (col 8) */}
-        <div className="lg:col-span-8 rounded-card border border-line bg-surface p-4 space-y-3">
+        <div className="lg:col-span-8 rounded-card border border-line bg-surface p-4 space-y-3 card-hover">
           <div className="flex items-center gap-2 pb-2 border-b border-line">
             <ShieldCheck className="w-4 h-4 text-accent" />
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
@@ -87,8 +89,6 @@ export const Policy: React.FC = () => {
 
           <div className="space-y-2.5">
             {RULES.map((rule) => {
-              const isBlock = rule.action === 'BLOCK';
-              const isAsk = rule.action === 'ASK';
               return (
                 <div
                   key={rule.id}
@@ -96,7 +96,9 @@ export const Policy: React.FC = () => {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-accent">{rule.id}</span>
+                      <span className="font-mono text-xs font-bold text-accent px-1.5 py-0.5 rounded bg-raised border border-line/60">
+                        {rule.id}
+                      </span>
                       <span className="font-semibold text-xs text-ink">{rule.name}</span>
                     </div>
                     <p className="text-[11px] text-muted leading-relaxed max-w-xl">
@@ -104,19 +106,11 @@ export const Policy: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] font-mono text-muted">Risk &gt; {rule.risk}</span>
-                    <span
-                      className={`font-mono text-xs font-bold px-2 py-0.5 rounded border ${
-                        isBlock
-                          ? 'bg-block-bg text-block border-block/40'
-                          : isAsk
-                          ? 'bg-ask-bg text-ask border-ask/40'
-                          : 'bg-allow-bg text-allow border-allow/40'
-                      }`}
-                    >
-                      {rule.action}
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <span className="text-[10px] font-mono text-muted bg-raised px-1.5 py-0.5 rounded border border-line/40">
+                      Risk &gt; {rule.risk}
                     </span>
+                    <DecisionBadge decision={rule.action.toLowerCase() as Decision} size="sm" />
                   </div>
                 </div>
               );
@@ -126,7 +120,7 @@ export const Policy: React.FC = () => {
 
         {/* Egress Allowlist & Capabilities (col 4) */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="rounded-card border border-line bg-surface p-4 space-y-3">
+          <div className="rounded-card border border-line bg-surface p-4 space-y-3 card-hover">
             <div className="flex items-center gap-2 pb-2 border-b border-line">
               <Globe className="w-4 h-4 text-accent" />
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">

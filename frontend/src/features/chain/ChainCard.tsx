@@ -69,7 +69,7 @@ export const ChainCard: React.FC = () => {
 
   return (
     <div
-      className={`rounded-card border p-3 sm:p-3.5 flex flex-col justify-between h-full transition-colors ${
+      className={`rounded-card border p-3 sm:p-3.5 flex flex-col justify-between h-full card-hover ${
         chain.ok ? 'border-line bg-surface' : 'border-block/80 bg-block-bg/25 shadow-sm shadow-block/10'
       }`}
     >
@@ -114,7 +114,9 @@ export const ChainCard: React.FC = () => {
 
           <div className="flex items-center justify-between">
             <span className="text-muted text-[10px]">Blocks Verified:</span>
-            <span className="font-mono font-semibold text-ink text-[10px]">{chain.entries} blocks</span>
+            <span className="font-mono font-semibold text-ink text-[10px] bg-raised px-1.5 py-0.2 rounded border border-line/40">
+              {chain.entries} blocks
+            </span>
           </div>
 
           <div className="flex items-center justify-between">

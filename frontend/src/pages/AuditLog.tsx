@@ -28,7 +28,7 @@ export const AuditLog: React.FC = () => {
         <div className="lg:col-span-3 space-y-4">
           <ChainCard />
 
-          <div className="rounded-card border border-line bg-surface p-4 space-y-3">
+          <div className="rounded-card border border-line bg-surface p-4 space-y-3 card-hover">
             <div className="flex items-center gap-2 pb-2 border-b border-line">
               <Database className="w-4 h-4 text-accent" />
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
@@ -43,15 +43,36 @@ export const AuditLog: React.FC = () => {
               </div>
               <div className="flex justify-between py-1 border-b border-line/40">
                 <span className="text-muted">Allowed</span>
-                <span className="font-mono font-bold text-allow">{counts.allow}</span>
+                <span className="font-mono font-bold text-allow flex items-center gap-1.5">
+                  <span>{counts.allow}</span>
+                  {counts.total > 0 && (
+                    <span className="text-[10px] font-normal px-1 rounded bg-allow-bg border border-allow/30">
+                      {Math.round((counts.allow / counts.total) * 100)}%
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between py-1 border-b border-line/40">
                 <span className="text-muted">Blocked</span>
-                <span className="font-mono font-bold text-block">{counts.block}</span>
+                <span className="font-mono font-bold text-block flex items-center gap-1.5">
+                  <span>{counts.block}</span>
+                  {counts.total > 0 && (
+                    <span className="text-[10px] font-normal px-1 rounded bg-block-bg border border-block/30">
+                      {Math.round((counts.block / counts.total) * 100)}%
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-muted">Human Approvals</span>
-                <span className="font-mono font-bold text-ask">{counts.ask}</span>
+                <span className="font-mono font-bold text-ask flex items-center gap-1.5">
+                  <span>{counts.ask}</span>
+                  {counts.total > 0 && (
+                    <span className="text-[10px] font-normal px-1 rounded bg-ask-bg border border-ask/30">
+                      {Math.round((counts.ask / counts.total) * 100)}%
+                    </span>
+                  )}
+                </span>
               </div>
             </div>
           </div>

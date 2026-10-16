@@ -101,7 +101,7 @@ export const LiveAgent: React.FC = () => {
           </div>
 
           {/* Prompt Input Form */}
-          <div className="rounded-card border border-line bg-surface p-4 space-y-3">
+          <div className="rounded-card border border-line bg-surface p-4 space-y-3 card-hover">
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-accent" />
               <span className="text-xs font-semibold text-ink uppercase tracking-wider">
@@ -174,7 +174,7 @@ export const LiveAgent: React.FC = () => {
             <PipelineFlow />
           </div>
 
-          <div className="rounded-card border border-line bg-surface p-4 space-y-3">
+          <div className="rounded-card border border-line bg-surface p-4 space-y-3 card-hover">
             <div className="flex items-center gap-2 pb-2 border-b border-line">
               <Shield className="w-4 h-4 text-accent" />
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">

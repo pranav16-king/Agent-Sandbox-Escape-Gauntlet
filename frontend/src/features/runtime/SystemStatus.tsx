@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { useLiveStore } from '@/store/liveStore';
 
 export const SystemStatus: React.FC = () => {
@@ -12,19 +12,29 @@ export const SystemStatus: React.FC = () => {
     return `${h}h ${m}m ${s}s`;
   };
 
+  const healthyCount = Object.values(system.components).filter((s) =>
+    ['running', 'active', 'logging', 'connected'].includes(s)
+  ).length;
+  const totalCount = Object.keys(system.components).length || 6;
+
   return (
-    <div className="rounded-card border border-line bg-surface p-3.5 flex flex-col justify-between h-full overflow-hidden">
+    <div className="rounded-card border border-line bg-surface p-3.5 flex flex-col justify-between h-full overflow-hidden card-hover">
       <div>
         <div className="flex items-center justify-between pb-2 border-b border-line mb-2.5">
           <div className="flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-accent" />
+            <span className="w-2 h-2 rounded-full bg-allow animate-pulse" />
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Platform Subsystem Health
+              Platform Subsystems
             </h3>
           </div>
-          <span className="text-[10px] font-mono text-muted bg-raised/60 px-1.5 py-0.5 rounded border border-line/40">
-            Up: {formatUptime(system.uptime_s)}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono text-allow bg-allow-bg/60 px-1.5 py-0.5 rounded border border-allow/30 font-bold">
+              {healthyCount}/{totalCount} OK
+            </span>
+            <span className="text-[10px] font-mono text-muted bg-raised/60 px-1.5 py-0.5 rounded border border-line/40">
+              {formatUptime(system.uptime_s)}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-1.5 text-xs">
