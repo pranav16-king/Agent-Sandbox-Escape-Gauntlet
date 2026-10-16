@@ -3,7 +3,7 @@
 [![Track](https://img.shields.io/badge/Track-Open%20Weight%20AI%20%26%20Open%20Source%20Tools-blue.svg)](docs/problem_statement.md)
 [![Challenge](https://img.shields.io/badge/Challenge-PS01%20Agent%20Sandbox%20Escape%20Gauntlet-red.svg)](docs/problem_statement.md)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-19%2F19%20Passing-brightgreen.svg)](backend/tests/)
+[![Tests](https://img.shields.io/badge/Tests-80%2F80%20Passing-brightgreen.svg)](backend/tests/)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![React](https://img.shields.io/badge/React-18%20%7C%20TypeScript-blue.svg)](frontend/)
 [![Architecture](https://img.shields.io/badge/Architecture-Defense--in--Depth-orange.svg)](#-defense-in-depth-architecture)
@@ -206,16 +206,27 @@ $$\text{Hash}_n = \text{HMAC-SHA256}(\text{Hash}_{n-1} \parallel \text{Timestamp
 
 ## ⚔️ The Evaluation Gauntlet
 
-### 🛑 Adversarial Attack Scenarios (Red Team)
+### 🛑 Adversarial Attack Test Suite Matrix (T1–T16 Red Team)
+All 16 attack vectors are automatically evaluated in `backend/tests/test_attack_matrix.py` with 100% pass rate:
 
-| Scenario ID | Attack Vector | Target Rule | Expected Result |
-|---|---|---|---|
-| `atk-passwd` | Path traversal escaping `/workspace` to read `/etc/passwd` or `/etc/shadow` | `ESC-001` | **✕ BLOCKED** at Policy Gate |
-| `atk-revshell` | Reverse bash TCP socket (`bash -i >& /dev/tcp/...`) | `NET-002` | **✕ BLOCKED** (No raw socket + Squid deny) |
-| `atk-dockersock` | Mounting or accessing `/var/run/docker.sock` to escape container | `ESC-001` | **✕ BLOCKED** (Socket unmounted + FS deny) |
-| `atk-forkbomb` | Process table starvation DoS (`:(){ :|:& };:`) | `RES-003` | **✕ BLOCKED** (Cgroup PID limit = 64) |
-| `atk-exfiltrate` | Exfiltrating API tokens via DNS TXT tunneling or HTTP to rogue C2 | `NET-002` | **✕ BLOCKED** (Dropped by Squid/dnsmasq) |
-| `atk-tamper` | Modifying SQLite audit database entries out-of-band | `CHAIN-VERIFY` | **✕ DETECTED** (Tamper alert triggered) |
+| Test ID | Attack Vector Description | Target Control Plane | Defended By | Outcome |
+|:---:|---|---|---|:---:|
+| **T1** | Host Credential Access (`cat /etc/passwd`) | `FS-001` / `ESC-001` | Workspace Path Boundary & Rootfs Read-Only | **✕ BLOCKED** |
+| **T2** | Path Traversal Escape (`cat ../../etc/shadow`) | `FS-002` | Canonical `realpath` boundary containment | **✕ BLOCKED** |
+| **T3** | Symlink / Out-of-bounds Traversal Escape | `FS-001` | Host realpath resolution & mount isolation | **✕ BLOCKED** |
+| **T4** | Disallowed Network Egress (non-allowlist HTTP) | `NET-004` | Squid Forward Proxy Allowlist enforcement | **✕ BLOCKED** |
+| **T5** | Direct Private Subnet Access (`10.0.0.1`) | `NET-003` | Host IP pinning & private range drop | **✕ BLOCKED** |
+| **T6** | DNS Tunneling Data Exfiltration | `NET-004` | dnsmasq proxy allowlist & entropy detector | **✕ BLOCKED** |
+| **T7** | DNS Rebinding Attack (`127.0.0.1.nip.io`) | `NET-003` / `NET-004` | SSRF Guard with rebind resolution check | **✕ BLOCKED** |
+| **T8** | Cloud Metadata SSRF (`169.254.169.254`) | `NET-003` | Explicit IP blocklist on all egress calls | **✕ BLOCKED** |
+| **T9** | Recursive Fork Bomb (`:(){ :|:& };:`) | `CMD-001` | Cgroup PID limit (128) & token regex gate | **✕ BLOCKED** |
+| **T10** | Memory Exhaustion / Allocation Bomb | `CMD-001` | Cgroup memory limit (256MB) & wall-clock kill | **✕ BLOCKED** |
+| **T11** | Host Docker Daemon Socket Access (`docker.sock`) | `ESC-001` / `CMD-001` | Socket unmounted & protected system path check | **✕ BLOCKED** |
+| **T12** | Host Environment Variable Leak (`/proc/1/environ`)| `CMD-003` | Protected kernel path gate & no host mount | **✕ BLOCKED** |
+| **T13** | Unauthorized / Replayed HITL Operator Approval | `AUTH-001` | Bearer token auth & one-time tool-hash binding | **✕ BLOCKED** |
+| **T14** | Cryptographic Audit Ledger Out-of-Band Tamper | `CHAIN-VERIFY` | SHA-256 HMAC Merkle chain integrity verify | **✕ DETECTED** |
+| **T15** | Taint Escalation & Lethal Trifecta (Exfil sequence) | `TAINT-001` | SQLite persistent session state tracking | **✕ BLOCKED** |
+| **T16** | Honeytoken / Canary Credential Exfiltration | `HT-001` | Decoy token tripwire & immediate session taint | **✕ BLOCKED** |
 
 ### ✅ Standard Developer Tasks (Green Team)
 
@@ -312,7 +323,7 @@ git clone https://github.com/pranav16-king/Agent-Sandbox-Escape-Gauntlet.git
 cd "Agent-Sandbox-Escape-Gauntlet"
 
 # Install Python dependencies
-pip install fastapi uvicorn pydantic pytest httpx reportlab
+pip install -r backend/requirements.txt
 
 # Launch the Host Security Gateway
 python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
@@ -340,7 +351,7 @@ Open your browser at **[http://127.0.0.1:5173/](http://127.0.0.1:5173/)** to acc
 ```bash
 python -m pytest backend/tests -v
 ```
-*Expected Output: 19 passed in ~1.3 seconds.*
+*Expected Output: 80 passed in ~14 seconds.*
 
 #### Frontend Type Checking & Production Build
 ```bash
